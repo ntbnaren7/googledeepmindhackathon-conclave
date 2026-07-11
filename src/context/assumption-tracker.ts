@@ -2,11 +2,7 @@ import { Assumption, ContextState, IAssumption } from '../shared/types';
 import { bestMatchIndex } from './matcher';
 
 export class AssumptionTracker {
-  track(
-    state: ContextState,
-    assumptions: readonly IAssumption[],
-    timestamp: number,
-  ): boolean {
+  track(state: ContextState, assumptions: readonly IAssumption[], timestamp: number): boolean {
     let changed = false;
 
     for (const assumption of assumptions) {
@@ -27,7 +23,7 @@ function upsertAssumption(
   const nextAssumption: Assumption = {
     id: existing?.id ?? assumption.id,
     content: existing?.content ?? assumption.statement,
-    status: assumption.challenged ? 'challenged' : existing?.status ?? 'active',
+    status: assumption.challenged ? 'challenged' : (existing?.status ?? 'active'),
     sourceUnitId: existing?.sourceUnitId ?? assumption.id,
     timestamp: existing?.timestamp ?? timestamp,
   };

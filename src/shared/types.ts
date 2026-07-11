@@ -31,7 +31,7 @@ export interface ITopic {
 export interface IDecision {
   id: string;
   description: string;
-  status: "proposed" | "approved" | "rejected";
+  status: 'proposed' | 'approved' | 'rejected';
   timestamp: number;
 }
 
@@ -56,17 +56,17 @@ export interface ISemanticDelta {
 }
 
 export type SemanticUnitType =
-  | "proposal"
-  | "decision"
-  | "assumption"
-  | "risk"
-  | "question"
-  | "objection"
-  | "clarification"
-  | "statement"
-  | "agreement";
+  | 'proposal'
+  | 'decision'
+  | 'assumption'
+  | 'risk'
+  | 'question'
+  | 'objection'
+  | 'clarification'
+  | 'statement'
+  | 'agreement';
 
-export type Domain = "architecture" | "product" | "finance" | "research" | null;
+export type Domain = 'architecture' | 'product' | 'finance' | 'research' | null;
 
 export interface SemanticUnit {
   readonly id: string;
@@ -81,7 +81,7 @@ export interface SemanticUnit {
 export interface Argument {
   id: string;
   content: string;
-  stance: "support" | "oppose";
+  stance: 'support' | 'oppose';
   speakerId?: string;
   sourceUnitId: string;
 }
@@ -89,7 +89,7 @@ export interface Argument {
 export interface DecisionNode {
   id: string;
   statement: string;
-  status: "proposed" | "decided" | "rejected";
+  status: 'proposed' | 'decided' | 'rejected';
   supporting: Argument[];
   opposing: Argument[];
   timestamp: number;
@@ -98,7 +98,7 @@ export interface DecisionNode {
 export interface Assumption {
   id: string;
   content: string;
-  status: "active" | "challenged" | "validated" | "invalidated";
+  status: 'active' | 'challenged' | 'validated' | 'invalidated';
   sourceUnitId: string;
   timestamp: number;
 }
@@ -106,9 +106,9 @@ export interface Assumption {
 export interface Risk {
   id: string;
   content: string;
-  severity: "low" | "med" | "high";
+  severity: 'low' | 'med' | 'high';
   mitigation?: string;
-  status: "open" | "mitigated";
+  status: 'open' | 'mitigated';
   timestamp: number;
 }
 
@@ -185,7 +185,7 @@ export interface IAgentResult {
 
 export interface IAgentResponse {
   content: string;
-  tone: "neutral" | "supportive" | "opposed" | "cautious";
+  tone: 'neutral' | 'supportive' | 'opposed' | 'cautious';
 }
 
 export interface ISpeechToken {

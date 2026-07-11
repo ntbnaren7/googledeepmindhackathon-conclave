@@ -71,10 +71,7 @@ export class PerceptionEngine implements IPerceptionEngine {
     await this.deps.connector.connect();
 
     // Periodic flush so a partial batch still gets compressed.
-    this.flushTimer = setInterval(
-      () => void this.flush(),
-      config.compressionIntervalMs,
-    );
+    this.flushTimer = setInterval(() => void this.flush(), config.compressionIntervalMs);
     logger.info('[perception] started', { meetingId: config.meetingId });
   }
 

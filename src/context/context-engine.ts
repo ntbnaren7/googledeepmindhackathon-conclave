@@ -51,22 +51,14 @@ export class ContextEngine implements IContextEngine {
     this.store.update((state) => {
       const topicChanged = this.topicTracker.track(state, delta.topics, timestamp);
       const decisionChanged = this.decisionTracker.track(state, delta.decisions);
-      const assumptionChanged = this.assumptionTracker.track(
-        state,
-        delta.assumptions,
-        timestamp,
-      );
+      const assumptionChanged = this.assumptionTracker.track(state, delta.assumptions, timestamp);
       const riskChanged = this.riskTracker.track(state, delta.risks, timestamp);
       // Link objection/agreement units to the decision they argue about. Runs
       // after decisionTracker so decisions from this same delta are matchable.
       const argumentChanged = linkArgumentUnits(state, delta.units);
 
       contextChanged =
-        topicChanged ||
-        decisionChanged ||
-        assumptionChanged ||
-        riskChanged ||
-        argumentChanged;
+        topicChanged || decisionChanged || assumptionChanged || riskChanged || argumentChanged;
     });
 
     const knowledgeChanged = this.storeKnowledgeEntries(delta, timestamp);
@@ -205,8 +197,7 @@ function isEmptyDelta(delta: SemanticDelta): boolean {
 }
 
 function resolveDeltaTimestamp(delta: SemanticDelta): number {
-  const unitTimestamp = delta.units.find((unit) => Number.isFinite(unit.timestamp))
-    ?.timestamp;
+  const unitTimestamp = delta.units.find((unit) => Number.isFinite(unit.timestamp))?.timestamp;
   const decisionTimestamp = delta.decisions.find((decision) =>
     Number.isFinite(decision.timestamp),
   )?.timestamp;

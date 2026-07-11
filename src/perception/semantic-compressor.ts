@@ -136,8 +136,15 @@ function readArray(source: unknown, key: string): unknown[] {
 }
 
 const SEMANTIC_UNIT_TYPES = new Set<SemanticUnitType>([
-  'proposal', 'decision', 'assumption', 'risk', 'question',
-  'objection', 'clarification', 'statement', 'agreement',
+  'proposal',
+  'decision',
+  'assumption',
+  'risk',
+  'question',
+  'objection',
+  'clarification',
+  'statement',
+  'agreement',
 ]);
 
 function readSemanticUnitType(value: unknown): SemanticUnitType | null {
