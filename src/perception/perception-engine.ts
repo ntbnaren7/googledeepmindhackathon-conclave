@@ -9,6 +9,7 @@ import type {
 } from './interfaces';
 import type { RawTranscript, TranscriptSegment, Speaker } from './types';
 import type { IEventBus } from '@events/interfaces';
+import type { SemanticDelta } from '@shared/types';
 import { EventType } from '@events/event-types';
 import { logger } from '@shared/logger';
 
@@ -23,6 +24,17 @@ export interface PerceptionEngineDeps {
 
 /** Source tag stamped on every event this module publishes. */
 const SOURCE = 'perception';
+
+/** True when a delta carries nothing on any channel. */
+function isEmptySemanticDelta(delta: SemanticDelta): boolean {
+  return (
+    delta.units.length === 0 &&
+    delta.topics.length === 0 &&
+    delta.decisions.length === 0 &&
+    delta.assumptions.length === 0 &&
+    delta.risks.length === 0
+  );
+}
 
 /**
  * Orchestrates the perception pipeline:
@@ -137,7 +149,10 @@ export class PerceptionEngine implements IPerceptionEngine {
 
     try {
       const delta = await this.deps.compressor.compress(segments);
-      if (delta.units.length === 0) return;
+      // Publish unless the delta is empty across ALL channels. Gating on units
+      // alone would drop a delta that carries only decisions/topics/assumptions/
+      // risks, starving the Context Engine of that structure.
+      if (isEmptySemanticDelta(delta)) return;
       this.deps.eventBus.publish({
         type: EventType.DELTA_PRODUCED,
         payload: { delta },
