@@ -1,4 +1,4 @@
-import { InterventionProposal } from '../shared/types';
+import { IAgentProposal } from '../shared/types';
 
 // ── Time Abstraction ──
 
@@ -41,13 +41,12 @@ export interface IAttentionBudget {
 export interface SpeakingToken {
   readonly tokenId: string;
   readonly agentId: string;
-  readonly proposalId: string;
   readonly grantedAt: number;
   readonly expiresAt: number;
 }
 
 export interface IAttentionGate {
-  tryGrant(proposal: InterventionProposal): SpeakingToken | null;
+  tryGrant(proposal: IAgentProposal): SpeakingToken | null;
   revoke(tokenId: string): void;
   isAgentSpeaking(): boolean;
   getActiveToken(): SpeakingToken | null;

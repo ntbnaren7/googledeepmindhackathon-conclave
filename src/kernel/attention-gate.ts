@@ -1,5 +1,5 @@
 import { IAttentionGate, ITimeProvider, SpeakingToken } from './interfaces';
-import { InterventionProposal } from '../shared/types';
+import { IAgentProposal } from '../shared/types';
 import crypto from 'crypto';
 
 export class AttentionGate implements IAttentionGate {
@@ -10,7 +10,7 @@ export class AttentionGate implements IAttentionGate {
     private readonly timeProvider: ITimeProvider
   ) {}
 
-  tryGrant(proposal: InterventionProposal): SpeakingToken | null {
+  tryGrant(proposal: IAgentProposal): SpeakingToken | null {
     const now = this.timeProvider.now();
 
     if (this.activeToken !== null) {
@@ -24,7 +24,6 @@ export class AttentionGate implements IAttentionGate {
     const token: SpeakingToken = Object.freeze({
       tokenId: crypto.randomUUID(),
       agentId: proposal.agentId,
-      proposalId: proposal.id,
       grantedAt: now,
       expiresAt: now + this.config.speakingTimeoutMs,
     });

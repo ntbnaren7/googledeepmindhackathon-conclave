@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { AttentionGate } from '../../../src/kernel/attention-gate';
 import { ITimeProvider } from '../../../src/kernel/interfaces';
-import { InterventionProposal } from '../../../src/shared/types';
+import { IAgentProposal } from '../../../src/shared/types';
 
 describe('AttentionGate', () => {
   let gate: AttentionGate;
@@ -12,20 +12,10 @@ describe('AttentionGate', () => {
     speakingTimeoutMs: 30000,
   };
 
-  const mockProposal: InterventionProposal = {
-    id: 'prop-1',
+  const mockProposal: IAgentProposal = {
     agentId: 'agent-1',
-    triggerEventId: 'evt-1',
-    createdAt: 1000,
-    relevance: 0.9,
-    severity: 0.8,
-    confidence: 0.9,
-    informationGain: 0.8,
-    timeCriticality: 0.5,
-    interruptCost: 10,
+    content: 'Test content',
     urgency: 0.8,
-    reason: 'Test reason',
-    recommendation: 'Test rec',
   };
 
   beforeEach(() => {
@@ -40,7 +30,6 @@ describe('AttentionGate', () => {
     const token = gate.tryGrant(mockProposal);
     expect(token).not.toBeNull();
     expect(token!.agentId).toBe('agent-1');
-    expect(token!.proposalId).toBe('prop-1');
     expect(token!.grantedAt).toBe(currentTime);
     expect(token!.expiresAt).toBe(currentTime + config.speakingTimeoutMs);
     expect(Object.isFrozen(token)).toBe(true);
@@ -49,7 +38,7 @@ describe('AttentionGate', () => {
   it('tryGrant returns null when another agent is speaking (FR-706)', () => {
     gate.tryGrant(mockProposal);
     
-    const anotherProposal = { ...mockProposal, id: 'prop-2', agentId: 'agent-2' };
+    const anotherProposal = { ...mockProposal, agentId: 'agent-2' };
     const secondToken = gate.tryGrant(anotherProposal);
     expect(secondToken).toBeNull();
   });
