@@ -4,7 +4,7 @@
   "description": "A Cognitive Operating System for real-time technical decision making",
   "main": "src/index.ts",
   "scripts": {
-    "dev": "ts-node src/index.ts",
+    "dev": "ts-node -r ./register-aliases.cjs src/index.ts",
     "dev:ui": "vite",
     "build": "tsc",
     "build:ui": "vite build",

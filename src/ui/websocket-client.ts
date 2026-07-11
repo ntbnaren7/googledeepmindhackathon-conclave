@@ -77,13 +77,21 @@ export class WebSocketClient {
 
   private handleRaw(data: unknown): void {
     if (typeof data !== 'string') return;
-    let event: { type?: string; payload?: unknown };
+    let parsed: { type?: string; payload?: unknown; kind?: string };
     try {
-      event = JSON.parse(data);
+      parsed = JSON.parse(data);
     } catch {
       return;
     }
-    for (const msg of this.translate(event)) this.onMessage(msg);
+    // The live backend (Orchestrator + WS server) already sends normalized
+    // UIMessages (identified by a `kind`), so forward those directly. Raw typed
+    // backend events (with a `type`) still go through translate() for
+    // compatibility.
+    if (typeof parsed.kind === 'string') {
+      this.onMessage(parsed as unknown as UIMessage);
+      return;
+    }
+    for (const msg of this.translate(parsed)) this.onMessage(msg);
   }
 
   /**
