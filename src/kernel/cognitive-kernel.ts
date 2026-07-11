@@ -49,7 +49,7 @@ export class CognitiveKernel implements ICognitiveKernel {
     this.isRunning = true;
 
     const debounceMs = this.deps.evaluationDebounceMs ?? 8000;
-    const quietMs    = this.deps.postSpeechQuietMs    ?? 15000;
+    const quietMs    = this.deps.postSpeechQuietMs    ?? 3000;
 
     // After an agent speaks, enforce a quiet window so the system doesn't
     // immediately react to its own injected text.

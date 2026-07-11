@@ -196,8 +196,8 @@ export class AgentLivePool {
   private onAgentWantsToSpeak(agentId: string, text: string, urgency: number): void {
     const now = Date.now();
 
-    // Reject if within post-speech quiet window
-    if (now < this.quietUntil) {
+    // Reject if within post-speech quiet window (unless user is actively speaking and needs interruption)
+    if (!this.userIsSpeaking && now < this.quietUntil) {
       logger.debug(`[agent-pool] ${agentId} suppressed (quiet window active)`, {
         remainingMs: this.quietUntil - now,
       });

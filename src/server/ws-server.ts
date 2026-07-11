@@ -109,10 +109,11 @@ export class ConclaveWebSocketServer {
       this.config.agentPool?.notifyUserSpeaking(true);
     });
 
-    // When user finishes speaking (turn complete from input transcription),
-    // restore normal urgency threshold on the agent pool.
+    // Track user speech state from input transcription so agents know when to cut in
     this.config.connector.onTranscript((raw) => {
-      if (raw.isFinal) {
+      if (!raw.isFinal && raw.text.trim().length > 0) {
+        this.config.agentPool?.notifyUserSpeaking(true);
+      } else if (raw.isFinal) {
         this.config.agentPool?.notifyUserSpeaking(false);
       }
     });
