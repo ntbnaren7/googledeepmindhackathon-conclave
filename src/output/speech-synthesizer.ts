@@ -1,6 +1,7 @@
 import { IAgentResponse, ISpeechToken } from "@shared/types";
 import { logger } from "@shared/logger";
-import { ISpeechOutput } from "./interfaces";
+import { ISpeechOutput, ITtsProvider, TtsSpeakOptions } from "./interfaces";
+import { WebSpeechProvider } from "./web-speech-provider";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -25,31 +26,34 @@ export interface SpeechSynthesizerConfig {
 /**
  * Provider-agnostic speech synthesizer.
  *
- * Consumes IAgentResponse and produces speech output.
- * Does NOT generate responses or perform reasoning — that is
+ * Consumes IAgentResponse and produces speech output via an injected
+ * ITtsProvider. Does NOT generate responses or perform reasoning — that is
  * the responsibility of the agent and response formatter layers.
  *
- * This implementation uses the Web Speech API as a baseline.
- * For production, swap the internal `synthesize` method with
- * the actual TTS provider (Gemini, Azure, etc.).
+ * By default, uses WebSpeechProvider (browser). For production, inject
+ * any ITtsProvider (Gemini TTS, Azure, ElevenLabs, etc.).
  */
 export class SpeechSynthesizer implements ISpeechOutput {
   private readonly config: Required<SpeechSynthesizerConfig>;
+  private readonly provider: ITtsProvider;
   private speaking = false;
   private queue: Array<{
     response: IAgentResponse;
     resolve: (token: ISpeechToken) => void;
     reject: (err: Error) => void;
   }> = [];
-  private currentUtterance: SpeechSynthesisUtterance | null = null;
 
-  constructor(config: SpeechSynthesizerConfig = {}) {
+  constructor(
+    config: SpeechSynthesizerConfig = {},
+    provider?: ITtsProvider,
+  ) {
     this.config = {
       rate: config.rate ?? 1.0,
       volume: config.volume ?? 1.0,
       voice: config.voice ?? "",
       lang: config.lang ?? "en-US",
     };
+    this.provider = provider ?? new WebSpeechProvider();
   }
 
   // =========================================================================
@@ -74,11 +78,8 @@ export class SpeechSynthesizer implements ISpeechOutput {
    * Does not clear the queue — queued items will play after stop.
    */
   stop(): void {
-    if (typeof window !== "undefined" && window.speechSynthesis) {
-      window.speechSynthesis.cancel();
-    }
+    this.provider.cancel();
     this.speaking = false;
-    this.currentUtterance = null;
     logger.debug("Speech stopped");
   }
 
@@ -117,59 +118,31 @@ export class SpeechSynthesizer implements ISpeechOutput {
     this.synthesize(item.response)
       .then((token) => {
         this.speaking = false;
-        this.currentUtterance = null;
         item.resolve(token);
         this.processQueue();
       })
       .catch((err) => {
         this.speaking = false;
-        this.currentUtterance = null;
         item.reject(err instanceof Error ? err : new Error(String(err)));
         this.processQueue();
       });
   }
 
   /**
-   * Synthesize a single response into speech.
-   *
-   * This is the provider-agnostic abstraction point.
-   * Replace this method body with the actual TTS provider call.
+   * Synthesize a single response into speech via the injected provider.
    */
   private async synthesize(response: IAgentResponse): Promise<ISpeechToken> {
     const text = response.content;
+    const options: TtsSpeakOptions = {
+      rate: this.config.rate,
+      volume: this.config.volume,
+      voice: this.config.voice || undefined,
+      lang: this.config.lang,
+    };
 
-    if (typeof window === "undefined" || !window.speechSynthesis) {
-      logger.warn("Speech synthesis unavailable (no browser API)", {
-        tone: response.tone,
-      });
-      return { text, durationMs: 0 };
-    }
-
-    return new Promise<ISpeechToken>((resolve, reject) => {
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = this.config.rate;
-      utterance.volume = this.config.volume;
-      utterance.lang = this.config.lang;
-
-      if (this.config.voice) {
-        const voices = window.speechSynthesis.getVoices();
-        const match = voices.find((v) => v.name === this.config.voice);
-        if (match) utterance.voice = match;
-      }
-
-      this.currentUtterance = utterance;
-      const startTime = Date.now();
-
-      utterance.onend = () => {
-        const durationMs = Date.now() - startTime;
-        resolve({ text, durationMs });
-      };
-
-      utterance.onerror = (event) => {
-        reject(new Error(`Speech synthesis error: ${event.error}`));
-      };
-
-      window.speechSynthesis.speak(utterance);
-    });
+    const startTime = Date.now();
+    await this.provider.speak(text, options);
+    const durationMs = Date.now() - startTime;
+    return { text, durationMs };
   }
 }

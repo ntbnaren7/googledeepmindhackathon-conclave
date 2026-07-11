@@ -5,3 +5,4 @@ export * from './id-generator';
 export * from './similarity';
 export * from './logger';
 export * from './deep-freeze';
+export * from './utils';
