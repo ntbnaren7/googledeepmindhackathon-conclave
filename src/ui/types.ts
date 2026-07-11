@@ -91,6 +91,8 @@ export type UIMessage =
   | { kind: 'decision'; decision: DecisionView }
   | { kind: 'intervention'; intervention: InterventionView }
   | { kind: 'context'; context: ContextView }
+  /** Tells the browser to speak the agent's response text aloud via TTS. */
+  | { kind: 'agent-speak'; agent: AgentId; text: string }
   /** Signals the start of a fresh session; components clear their state. */
   | { kind: 'reset' };
 

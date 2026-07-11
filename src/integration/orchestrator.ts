@@ -203,6 +203,11 @@ export class Orchestrator {
       try {
         const response = await agent.generateResponse(iSnapshot, granted);
         if (response.content) note = response.content;
+
+        // Tell the browser to speak the agent's response aloud via TTS.
+        const agentId = this.asAgent(granted.agentId);
+        b.broadcast({ kind: 'agent-speak', agent: agentId, text: note });
+
         if (b.speech) await b.speech.speak(response);
       } catch (error) {
         logger.warn('[orchestrator] response generation failed', { error: String(error) });
@@ -211,16 +216,16 @@ export class Orchestrator {
 
     const now = b.timeProvider.now();
     this.lastInterventionAt.set(granted.agentId, now);
-    const agentId = this.asAgent(granted.agentId);
+    const agentIdForStatus = this.asAgent(granted.agentId);
     b.broadcast({
       kind: 'stakeholder',
-      stakeholder: { id: agentId, status: 'speaking', lastInterventionAt: now },
+      stakeholder: { id: agentIdForStatus, status: 'speaking', lastInterventionAt: now },
     });
     this.emitIntervention(granted, 'granted', note);
     b.attentionGate.onSpeechComplete(token.tokenId);
     b.broadcast({
       kind: 'stakeholder',
-      stakeholder: { id: agentId, status: 'idle', lastInterventionAt: now },
+      stakeholder: { id: agentIdForStatus, status: 'idle', lastInterventionAt: now },
     });
   }
 

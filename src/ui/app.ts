@@ -8,6 +8,7 @@ import { StakeholderPanel } from './components/stakeholder-panel';
 import { TranscriptPanel } from './components/transcript-panel';
 import { DecisionGraphPanel } from './components/decision-graph-panel';
 import { InterruptQueue } from './components/interrupt-queue';
+import { AgentSpeechController } from './agent-speech-controller';
 import { escapeHtml } from './agents';
 
 /**
@@ -44,11 +45,7 @@ class HeaderTopic implements UIComponent {
 
 function main(): void {
   const params = new URLSearchParams(location.search);
-  const mode: ConnectionMode = params.has('mock')
-    ? 'mock'
-    : params.has('live')
-      ? 'live'
-      : 'auto';
+  const mode: ConnectionMode = params.has('mock') ? 'mock' : params.has('live') ? 'live' : 'auto';
 
   const dispatcher = new Dispatcher();
   dispatcher.register(new AttentionBudgetGauge(), byId('budget-body'));
@@ -58,6 +55,10 @@ function main(): void {
   dispatcher.register(new DecisionGraphPanel(), byId('decision-body'));
   dispatcher.register(new InterruptQueue(), byId('interventions-body'));
   dispatcher.register(new HeaderTopic(), byId('topic-chip'));
+
+  // Agent TTS — speaks granted interventions aloud; auto-interrupts on human input.
+  // Uses document.body as a dummy root since the controller creates its own overlay.
+  dispatcher.register(new AgentSpeechController(), document.body);
 
   const statusEl = byId('conn-status');
   const client = new WebSocketClient({

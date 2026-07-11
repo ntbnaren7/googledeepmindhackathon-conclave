@@ -12,7 +12,10 @@ const DEMO_LINES: ReadonlyArray<{ speaker: string; text: string }> = [
   { speaker: 'Arjun', text: 'Agreed. Traffic will probably stay under ten thousand users anyway.' },
   { speaker: 'Priya', text: 'Kubernetes gives us better scaling and safer rolling deploys.' },
   { speaker: 'Arjun', text: 'But operating Kubernetes adds real complexity and on-call burden.' },
-  { speaker: 'Priya', text: 'What is the budget impact if the migration runs longer than planned?' },
+  {
+    speaker: 'Priya',
+    text: 'What is the budget impact if the migration runs longer than planned?',
+  },
 ];
 
 /**

@@ -292,3 +292,103 @@ body {
 }
 @keyframes ib-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
 .input-bar .ib-hint { flex: 1 1 100%; color: var(--text-faint, #9a9ab0); font-size: 11px; }
+
+/* ── Agent speech overlay (floating TTS indicator) ── */
+.agent-speech-overlay {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  transition: opacity var(--t-fast), transform var(--t-fast);
+}
+.agent-speech-overlay.hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%) translateY(12px);
+}
+.speech-indicator {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 10px 20px;
+  background: var(--panel-bg);
+  border: 1px solid var(--agent, var(--accent));
+  border-radius: 999px;
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  box-shadow: 0 0 24px -4px var(--agent, var(--accent)), var(--shadow);
+}
+.speech-label {
+  font-family: var(--font-head);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+}
+.speech-stop-btn {
+  background: none;
+  border: 1px solid rgba(255,255,255,0.15);
+  color: var(--text-dim);
+  cursor: pointer;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: border-color var(--t-fast), color var(--t-fast);
+}
+.speech-stop-btn:hover {
+  border-color: var(--budget-low);
+  color: var(--budget-low);
+}
+
+/* Speech waveform bars */
+.speech-wave {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 18px;
+}
+.speech-wave span {
+  display: block;
+  width: 3px;
+  border-radius: 999px;
+  background: var(--agent, var(--accent));
+  animation: speech-bar 0.8s ease-in-out infinite;
+}
+.speech-wave span:nth-child(1) { height: 6px;  animation-delay: 0.0s; }
+.speech-wave span:nth-child(2) { height: 12px; animation-delay: 0.1s; }
+.speech-wave span:nth-child(3) { height: 16px; animation-delay: 0.2s; }
+.speech-wave span:nth-child(4) { height: 12px; animation-delay: 0.3s; }
+.speech-wave span:nth-child(5) { height: 6px;  animation-delay: 0.4s; }
+
+@keyframes speech-bar {
+  0%, 100% { transform: scaleY(0.4); opacity: 0.5; }
+  50%      { transform: scaleY(1.0); opacity: 1; }
+}
+
+/* ── Agent card TTS speaking glow ── */
+.agent-card.tts-speaking {
+  box-shadow: 0 0 20px -2px var(--agent), 0 0 40px -6px var(--agent);
+  background: rgba(255,255,255,0.06);
+  animation: agent-speak-pulse 1.5s ease-in-out infinite;
+}
+@keyframes agent-speak-pulse {
+  0%, 100% { box-shadow: 0 0 20px -2px var(--agent), 0 0 40px -6px var(--agent); }
+  50%      { box-shadow: 0 0 28px 0px var(--agent), 0 0 56px -4px var(--agent); }
+}
+
+/* ── Agent card interrupted flash ── */
+.agent-card.tts-interrupted {
+  animation: interrupted-flash 0.4s ease-out 3;
+}
+@keyframes interrupted-flash {
+  0%   { box-shadow: 0 0 0 0 var(--budget-low); }
+  50%  { box-shadow: 0 0 20px 2px var(--budget-low); background: rgba(239,68,68,0.08); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
