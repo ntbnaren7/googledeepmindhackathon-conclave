@@ -1,11 +1,11 @@
 import type { ISemanticCompressor } from './interfaces';
 import type { TranscriptSegment } from './types';
 import type {
+  AgentAssumption,
+  AgentDecision,
+  AgentRisk,
+  AgentSemanticUnit,
   SemanticDelta,
-  ISemanticUnit,
-  IDecision,
-  IAssumption,
-  IRisk,
 } from '@shared/types';
 import { generateId } from '@shared/id-generator';
 
@@ -19,10 +19,10 @@ import { generateId } from '@shared/id-generator';
  */
 export class MockCompressor implements ISemanticCompressor {
   async compress(segments: TranscriptSegment[]): Promise<SemanticDelta> {
-    const units: ISemanticUnit[] = [];
-    const decisions: IDecision[] = [];
-    const assumptions: IAssumption[] = [];
-    const risks: IRisk[] = [];
+    const units: AgentSemanticUnit[] = [];
+    const decisions: AgentDecision[] = [];
+    const assumptions: AgentAssumption[] = [];
+    const risks: AgentRisk[] = [];
 
     for (const segment of segments) {
       const text = segment.text.trim();

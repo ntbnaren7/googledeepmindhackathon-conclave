@@ -1,6 +1,6 @@
 import {
   IAgentProposal,
-  IContextSnapshot,
+  AgentContextSnapshot,
 } from "@shared/types";
 import { clamp } from "@shared/utils";
 
@@ -11,7 +11,7 @@ import { clamp } from "@shared/utils";
 /** Input bundle for `calculateUrge`. */
 export interface IUrgeParams {
   proposal: IAgentProposal;
-  context: IContextSnapshot;
+  context: AgentContextSnapshot;
   history: readonly IAgentProposal[];
 }
 
@@ -177,7 +177,7 @@ export class InterventionScorer {
    */
   calculateConfidence(
     proposal: IAgentProposal,
-    context: IContextSnapshot,
+    context: AgentContextSnapshot,
   ): number {
     // Signal 1 — content length (weight: 40%)
     // Sigmoid-like curve: short content → low, long → high, capped at ~200 chars
@@ -210,7 +210,7 @@ export class InterventionScorer {
    */
   calculateUrgency(
     proposal: IAgentProposal,
-    context: IContextSnapshot,
+    context: AgentContextSnapshot,
   ): number {
     // Signal 1 — keyword density (weight: 35%)
     const keywordScore = InterventionScorer.keywordHitRate(
@@ -260,7 +260,7 @@ export class InterventionScorer {
    */
   scoreProposal(
     proposal: IAgentProposal,
-    context: IContextSnapshot,
+    context: AgentContextSnapshot,
     history: readonly IAgentProposal[],
   ): ScoringResult {
     const confidence = this.calculateConfidence(proposal, context);
@@ -351,7 +351,7 @@ export class InterventionScorer {
    * Higher-severity risks produce more pressure.
    * Returns a value in [0, 1].
    */
-  private static riskPressure(context: IContextSnapshot): number {
+  private static riskPressure(context: AgentContextSnapshot): number {
     if (context.risks.length === 0) return 0;
     const totalSeverity = context.risks.reduce(
       (sum, r) => sum + clamp(r.severity, 0, 1),

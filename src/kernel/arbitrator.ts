@@ -9,6 +9,7 @@ import {
   IKernelMetrics,
   ITimeProvider,
 } from './interfaces';
+import { logger } from '../shared/logger';
 
 export class NoOpMetrics implements IKernelMetrics {
   recordArbitration(): void {}
@@ -207,6 +208,16 @@ export class Arbitrator implements IArbitrator {
     });
 
     const winner = sorted[0].proposal;
+
+    // Log why this agent won for observability
+    if (winner.triggerQuote || winner.urgencyReason) {
+      logger.info('[arbitrator] winner selected', {
+        agentId: winner.agentId,
+        urgency: winner.urgency,
+        triggerQuote: winner.triggerQuote,
+        urgencyReason: winner.urgencyReason,
+      });
+    }
 
     // Everything else is rejected since they lost the tie
     const allRejected = [...rejected, ...sorted.slice(1).map((sp) => sp.proposal)];

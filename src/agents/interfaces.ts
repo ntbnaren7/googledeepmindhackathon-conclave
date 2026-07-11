@@ -1,6 +1,6 @@
 import {
-  IContextSnapshot,
-  ISemanticDelta,
+  AgentContextSnapshot,
+  SemanticDelta,
   IBlackboardState,
   IAgentResult,
   IAgentProposal,
@@ -24,12 +24,12 @@ export interface IStakeholderAgent {
   readonly role: string;
   readonly responsibilities: string[];
   evaluate(
-    snapshot: IContextSnapshot,
-    delta: ISemanticDelta,
+    snapshot: AgentContextSnapshot,
+    delta: SemanticDelta,
     blackboard: IBlackboardState,
   ): Promise<IAgentResult>;
   generateResponse(
-    snapshot: IContextSnapshot,
+    snapshot: AgentContextSnapshot,
     proposal: IAgentProposal,
   ): Promise<IAgentResponse>;
   reset(): void;

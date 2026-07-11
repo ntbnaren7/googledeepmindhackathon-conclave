@@ -230,13 +230,20 @@ describe('ContextEngine', () => {
     engine.handleDelta(buildDelta());
 
     const graph = engine.getDecisionGraph();
-    graph[0].status = 'rejected';
-    graph[0].opposing.push({
-      id: 'x',
-      content: 'tampering',
-      stance: 'oppose',
-      sourceUnitId: 'x',
-    });
+    graph[0] = {
+      ...graph[0],
+      status: 'rejected',
+      opposing: [
+        ...graph[0].opposing,
+        {
+          id: 'arg2',
+          content: 'That might delay the launch.',
+          stance: 'oppose',
+          speakerId: 'B',
+          sourceUnitId: 'u2',
+        }
+      ]
+    };
 
     expect(engine.getDecisionGraph()[0].status).toBe('decided');
     expect(engine.getDecisionGraph()[0].opposing).toHaveLength(0);

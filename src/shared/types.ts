@@ -8,7 +8,7 @@ export interface Speaker {
   isHuman: boolean;
 }
 
-export interface ISemanticUnit {
+export interface AgentSemanticUnit {
   id: string;
   speakerId: string;
   content: string;
@@ -22,37 +22,37 @@ export interface ISemanticUnit {
   type?: SemanticUnitType;
 }
 
-export interface ITopic {
+export interface AgentTopic {
   id: string;
   label: string;
   confidence: number;
 }
 
-export interface IDecision {
+export interface AgentDecision {
   id: string;
   description: string;
   status: 'proposed' | 'approved' | 'rejected';
   timestamp: number;
 }
 
-export interface IAssumption {
+export interface AgentAssumption {
   id: string;
   statement: string;
   challenged: boolean;
 }
 
-export interface IRisk {
+export interface AgentRisk {
   id: string;
   description: string;
   severity: number;
 }
 
-export interface ISemanticDelta {
-  units: ISemanticUnit[];
-  topics: ITopic[];
-  decisions: IDecision[];
-  assumptions: IAssumption[];
-  risks: IRisk[];
+export interface SemanticDelta {
+  units: AgentSemanticUnit[];
+  topics: AgentTopic[];
+  decisions: AgentDecision[];
+  assumptions: AgentAssumption[];
+  risks: AgentRisk[];
 }
 
 export type SemanticUnitType =
@@ -79,43 +79,43 @@ export interface SemanticUnit {
 }
 
 export interface Argument {
-  id: string;
-  content: string;
-  stance: 'support' | 'oppose';
-  speakerId?: string;
-  sourceUnitId: string;
+  readonly id: string;
+  readonly content: string;
+  readonly stance: 'support' | 'oppose';
+  readonly speakerId?: string;
+  readonly sourceUnitId: string;
 }
 
 export interface DecisionNode {
-  id: string;
-  statement: string;
-  status: 'proposed' | 'decided' | 'rejected';
-  supporting: Argument[];
-  opposing: Argument[];
-  timestamp: number;
+  readonly id: string;
+  readonly statement: string;
+  readonly status: 'proposed' | 'decided' | 'rejected';
+  readonly supporting: readonly Argument[];
+  readonly opposing: readonly Argument[];
+  readonly timestamp: number;
 }
 
 export interface Assumption {
-  id: string;
-  content: string;
-  status: 'active' | 'challenged' | 'validated' | 'invalidated';
-  sourceUnitId: string;
-  timestamp: number;
+  readonly id: string;
+  readonly content: string;
+  readonly status: 'active' | 'challenged' | 'validated' | 'invalidated';
+  readonly sourceUnitId: string;
+  readonly timestamp: number;
 }
 
 export interface Risk {
-  id: string;
-  content: string;
-  severity: 'low' | 'med' | 'high';
-  mitigation?: string;
-  status: 'open' | 'mitigated';
-  timestamp: number;
+  readonly id: string;
+  readonly content: string;
+  readonly severity: 'low' | 'med' | 'high';
+  readonly mitigation?: string;
+  readonly status: 'open' | 'mitigated';
+  readonly timestamp: number;
 }
 
 export interface Topic {
-  id: string;
-  title: string;
-  startedAtTimestamp: number;
+  readonly id: string;
+  readonly title: string;
+  readonly startedAtTimestamp: number;
 }
 
 export interface ContextState {
@@ -156,18 +156,23 @@ export interface MeetingRecord {
   readonly generatedAt: number;
 }
 
-export interface IContextSnapshot {
-  topics: ITopic[];
-  decisions: IDecision[];
-  assumptions: IAssumption[];
-  risks: IRisk[];
+export interface AgentContextSnapshot {
+  topics: AgentTopic[];
+  decisions: AgentDecision[];
+  assumptions: AgentAssumption[];
+  risks: AgentRisk[];
   timestamp: number;
 }
+
+export type IContextSnapshot = AgentContextSnapshot;
+export type ISemanticDelta = SemanticDelta;
 
 export interface IBlackboardEntry {
   agentId: string;
   content: string;
   timestamp: number;
+  /** IDs of other blackboard entries this explicitly addresses (dialogue threading). */
+  inReplyTo?: string[];
 }
 
 export type IBlackboardState = IBlackboardEntry[];
@@ -176,6 +181,10 @@ export interface IAgentProposal {
   agentId: string;
   content: string;
   urgency: number;
+  /** The exact text from the transcript/delta that triggered this proposal. */
+  triggerQuote?: string;
+  /** One-sentence rationale for why this urgency level was chosen. */
+  urgencyReason?: string;
 }
 
 export interface IAgentResult {
@@ -193,7 +202,6 @@ export interface ISpeechToken {
   durationMs: number;
 }
 
-export type SemanticDelta = ISemanticDelta;
 
 export interface ArbitrationResult {
   granted: IAgentProposal | null;

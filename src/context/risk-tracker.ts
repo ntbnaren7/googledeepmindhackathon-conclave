@@ -1,8 +1,8 @@
-import { ContextState, IRisk, Risk } from '../shared/types';
+import { ContextState, AgentRisk, Risk } from '../shared/types';
 import { bestMatchIndex } from './matcher';
 
 export class RiskTracker {
-  track(state: ContextState, risks: readonly IRisk[], timestamp: number): boolean {
+  track(state: ContextState, risks: readonly AgentRisk[], timestamp: number): boolean {
     let changed = false;
 
     for (const risk of risks) {
@@ -13,25 +13,23 @@ export class RiskTracker {
   }
 }
 
-function findRiskIndex(state: ContextState, risk: IRisk): number {
+function findRiskIndex(state: ContextState, risk: AgentRisk): number {
   const byId = state.risks.findIndex((candidate) => candidate.id === risk.id);
   if (byId >= 0) return byId;
   return bestMatchIndex(risk.description, state.risks, (r) => r.content);
 }
 
-function upsertRisk(state: ContextState, risk: IRisk, timestamp: number): boolean {
+function upsertRisk(state: ContextState, risk: AgentRisk, timestamp: number): boolean {
   const existingIndex = findRiskIndex(state, risk);
   const existing = existingIndex >= 0 ? state.risks[existingIndex] : null;
   const nextRisk: Risk = {
     id: existing?.id ?? risk.id,
     content: existing?.content ?? risk.description,
     severity: mapRiskSeverity(risk.severity),
-    status: existing?.status ?? 'open',
+    status: 'open',
     timestamp: existing?.timestamp ?? timestamp,
+    mitigation: existing?.mitigation,
   };
-  if (existing?.mitigation !== undefined) {
-    nextRisk.mitigation = existing.mitigation;
-  }
 
   if (!existing) {
     state.risks.push(nextRisk);

@@ -1,4 +1,6 @@
 import { WebSocketClient, type ConnectionMode } from './websocket-client';
+import { AudioRecorder } from './audio-recorder';
+import { AudioPlayer } from './audio-player';
 import { Dispatcher } from './dispatcher';
 import type { UIComponent, UIMessage } from './types';
 import { AttentionBudgetGauge } from './components/attention-budget-gauge';
@@ -59,10 +61,15 @@ function main(): void {
   dispatcher.register(new HeaderTopic(), byId('topic-chip'));
 
   const statusEl = byId('conn-status');
+  const audioPlayer = new AudioPlayer(24000);
   const client = new WebSocketClient({
     url: `ws://${location.hostname || 'localhost'}:3001`,
     mode,
     onMessage: (msg) => dispatcher.route(msg),
+    onAudio: (buffer) => audioPlayer.enqueue(buffer),
+    // When the model is cut off mid-sentence by user speech, immediately
+    // stop all buffered audio so the user's voice can be heard.
+    onInterrupt: () => audioPlayer.interrupt(),
     onStatus: (status) => {
       if (!statusEl) return;
       statusEl.textContent =
@@ -70,6 +77,29 @@ function main(): void {
     },
   });
   client.connect();
+
+  const micBtn = byId('mic-btn') as HTMLButtonElement | null;
+  const audioRecorder = new AudioRecorder((buffer) => client.sendAudio(buffer));
+
+  if (micBtn) {
+    micBtn.addEventListener('click', async () => {
+      if (audioRecorder.isRunning) {
+        audioRecorder.stop();
+        micBtn.textContent = '🎙️ Start Mic';
+        micBtn.classList.remove('recording');
+      } else {
+        try {
+          await audioRecorder.start();
+          micBtn.textContent = '⏹ Stop Mic';
+          micBtn.classList.add('recording');
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.error('Failed to start mic', err);
+          alert('Could not access microphone.');
+        }
+      }
+    });
+  }
 }
 
 main();

@@ -1,6 +1,6 @@
 import {
-  IContextSnapshot,
-  ISemanticDelta,
+  AgentContextSnapshot,
+  SemanticDelta,
   IBlackboardState,
   IAgentResult,
   IAgentProposal,
@@ -12,6 +12,7 @@ import { RUNTIME_CONSTANTS } from "@shared/constants";
 import { extractJson } from "@shared/utils";
 import { InterventionScorer } from "./intervention-scorer";
 import { IStakeholderAgent, ILlmClient } from "./interfaces";
+import type { AgentPersona, CompanyContext } from "./persona";
 
 // ---------------------------------------------------------------------------
 // Types consumed by the child-class hook methods
@@ -19,8 +20,8 @@ import { IStakeholderAgent, ILlmClient } from "./interfaces";
 
 /** Everything a child needs to build an evaluation prompt. */
 export interface EvaluationPromptContext {
-  snapshot: IContextSnapshot;
-  delta: ISemanticDelta;
+  snapshot: AgentContextSnapshot;
+  delta: SemanticDelta;
   blackboard: IBlackboardState;
   responsibilities: string[];
   role: string;
@@ -28,7 +29,7 @@ export interface EvaluationPromptContext {
 
 /** Everything a child needs to build a response prompt. */
 export interface ResponsePromptContext {
-  snapshot: IContextSnapshot;
+  snapshot: AgentContextSnapshot;
   proposal: IAgentProposal;
   role: string;
 }
@@ -37,6 +38,10 @@ export interface ResponsePromptContext {
 export interface ParsedEvaluation {
   proposal: IAgentProposal | null;
   blackboardEntries: IBlackboardEntry[];
+  /** The exact text from the delta/transcript that triggered the proposal. */
+  triggerQuote?: string;
+  /** One-sentence rationale for the urgency score chosen. */
+  urgencyReason?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -81,8 +86,14 @@ export abstract class BaseAgent implements IStakeholderAgent {
   private readonly scorer = new InterventionScorer();
   private proposalHistory: IAgentProposal[] = [];
 
-  constructor(llmClient: ILlmClient) {
+  /** Character and company context — injected at construction. */
+  protected readonly persona?: AgentPersona;
+  protected readonly company?: CompanyContext;
+
+  constructor(llmClient: ILlmClient, persona?: AgentPersona, company?: CompanyContext) {
     this.llmClient = llmClient;
+    this.persona = persona;
+    this.company = company;
   }
 
   // =========================================================================
@@ -95,8 +106,8 @@ export abstract class BaseAgent implements IStakeholderAgent {
    * that other agents can read.
    */
   async evaluate(
-    snapshot: IContextSnapshot,
-    delta: ISemanticDelta,
+    snapshot: AgentContextSnapshot,
+    delta: SemanticDelta,
     blackboard: IBlackboardState,
   ): Promise<IAgentResult> {
     try {
@@ -125,6 +136,12 @@ export abstract class BaseAgent implements IStakeholderAgent {
 
       // Step 4 — parse the raw LLM response into structured data
       const parsed = this.parseEvaluationOutput(raw);
+
+      // Step 5 — carry triggerQuote/urgencyReason into the proposal
+      if (parsed.proposal && (parsed.triggerQuote || parsed.urgencyReason)) {
+        (parsed.proposal as IAgentProposal).triggerQuote = parsed.triggerQuote;
+        (parsed.proposal as IAgentProposal).urgencyReason = parsed.urgencyReason;
+      }
 
       // Step 5 — suppress proposals that duplicate recent ones
       const filtered = this.filterByNovelty(parsed);
@@ -155,7 +172,7 @@ export abstract class BaseAgent implements IStakeholderAgent {
    * by the attention gate / arbitrator.
    */
   async generateResponse(
-    snapshot: IContextSnapshot,
+    snapshot: AgentContextSnapshot,
     proposal: IAgentProposal,
   ): Promise<IAgentResponse> {
     try {
@@ -205,61 +222,57 @@ export abstract class BaseAgent implements IStakeholderAgent {
    * Default implementation returns true for all deltas.
    * Override to filter out irrelevant updates (e.g., CTO ignores marketing).
    */
-  protected isRelevantDelta(_delta: ISemanticDelta): boolean {
+  protected isRelevantDelta(_delta: SemanticDelta): boolean {
     return true;
   }
 
   /**
    * Build the LLM prompt used during the evaluation phase.
-   * Default implementation assembles a generic context prompt that lists
-   * the agent's role, responsibilities, current context snapshot, delta,
-   * and blackboard state.
+   * Subclasses should call super's helpers (buildPersonaBlock, buildCompanyBlock)
+   * at the top of their override to maintain consistent structure.
    */
   protected buildEvaluationPrompt(ctx: EvaluationPromptContext): string {
     return [
-      `You are a ${ctx.role} stakeholder in a meeting.`,
-      `Your responsibilities: ${ctx.responsibilities.join(", ")}.`,
+      this.buildPersonaBlock(),
+      this.buildCompanyBlock(),
+      `Your domain responsibilities: ${ctx.responsibilities.join(", ")}.`,
       "",
-      "## Current Context",
+      "## Meeting Context",
       this.formatSnapshot(ctx.snapshot),
       "",
-      "## Recent Changes (Delta)",
+      "## What Just Happened (Delta)",
       this.formatDelta(ctx.delta),
       "",
-      "## Blackboard (Other Agents' Posts)",
+      "## What Your Colleagues Have Noted",
       this.formatBlackboard(ctx.blackboard),
       "",
-      "Decide whether to intervene.  Respond with JSON:",
-      '{"proposal": {"agentId": "...", "content": "...", "urgency": 0.0-1.0} or null,',
-      ' "blackboardEntries": [{"agentId": "...", "content": "..."}]}',
-      "",
-      "## CRITICAL: Anti-Hallucination Rules",
-      "- ONLY reference facts, risks, and concerns explicitly stated in the context above.",
-      "- Do NOT invent metrics, benchmarks, or technical details not in the context.",
-      "- Do NOT fabricate risks or concerns that aren't mentioned.",
-      "- If the context lacks sufficient information for your domain, return null.",
-      "- Base your proposal strictly on the Topics, Decisions, Assumptions, and Risks provided.",
+      this.buildUrgencyProtocol(),
     ].join("\n");
   }
 
   /**
    * Build the LLM prompt used when generating a spoken response.
-   * Default implementation provides the context and the proposal text.
    */
   protected buildResponsePrompt(ctx: ResponsePromptContext): string {
     return [
-      `You are a ${ctx.role} stakeholder in a meeting.`,
+      this.buildPersonaBlock(),
+      this.buildCompanyBlock(),
       "",
-      "## Current Context",
+      "## Meeting Context",
       this.formatSnapshot(ctx.snapshot),
       "",
-      "## Proposal to Respond To",
-      `Agent: ${ctx.proposal.agentId}`,
-      `Content: ${ctx.proposal.content}`,
-      `Urgency: ${ctx.proposal.urgency}`,
+      "## You Have Been Granted the Floor",
+      `Your proposal was: ${ctx.proposal.content}`,
+      ctx.proposal.triggerQuote ? `You were triggered by: "${ctx.proposal.triggerQuote}"` : "",
+      "",
+      "## Response Guidelines",
+      "- Speak as yourself — use your voice, your style.",
+      "- Be specific: reference actual claims or numbers from the conversation.",
+      "- Be brief: 1-3 sentences max. This is a meeting interruption, not a presentation.",
+      "- If a colleague noted something relevant, build on or challenge it explicitly.",
       "",
       "Respond with JSON:",
-      '{"content": "...", "tone": "neutral"|"supportive"|"opposed"|"cautious"}',
+      '{"content": "<your spoken response>", "tone": "neutral"|"supportive"|"opposed"|"cautious"}',
       "",
       "## CRITICAL: Anti-Hallucination Rules",
       "- ONLY respond based on the context and proposal above.",
@@ -294,7 +307,12 @@ export abstract class BaseAgent implements IStakeholderAgent {
         }))
       : [];
 
-    return { proposal, blackboardEntries };
+    return {
+      proposal,
+      blackboardEntries,
+      triggerQuote: typeof json.triggerQuote === 'string' ? json.triggerQuote : undefined,
+      urgencyReason: typeof json.urgencyReason === 'string' ? json.urgencyReason : undefined,
+    };
   }
 
   /**
@@ -363,7 +381,7 @@ export abstract class BaseAgent implements IStakeholderAgent {
   }
 
   /** Format a context snapshot into a human-readable string for LLM prompts. */
-  protected formatSnapshot(snap: IContextSnapshot): string {
+  protected formatSnapshot(snap: AgentContextSnapshot): string {
     const lines: string[] = [];
     if (snap.topics.length > 0) {
       lines.push(`Topics: ${snap.topics.map((t) => t.label).join(", ")}`);
@@ -387,7 +405,7 @@ export abstract class BaseAgent implements IStakeholderAgent {
   }
 
   /** Format a semantic delta into a human-readable string for LLM prompts. */
-  protected formatDelta(delta: ISemanticDelta): string {
+  protected formatDelta(delta: SemanticDelta): string {
     const lines: string[] = [];
     if (delta.units.length > 0) {
       lines.push(`New utterances: ${delta.units.length}`);
@@ -413,11 +431,105 @@ export abstract class BaseAgent implements IStakeholderAgent {
     return lines.length > 0 ? lines.join("\n") : "(No changes)";
   }
 
-  /** Format the blackboard state into a human-readable string for LLM prompts. */
+  /** Format the blackboard state into a rich, human-readable string that encourages agent-to-agent dialogue. */
   protected formatBlackboard(blackboard: IBlackboardState): string {
-    if (blackboard.length === 0) return "(Empty)";
-    return blackboard
-      .map((e) => `[${e.agentId}] ${e.content}`)
-      .join("\n");
+    if (blackboard.length === 0) return "(No colleagues have posted anything yet)";
+    const now = Date.now();
+    const lines = blackboard.map((e) => {
+      const ageMs = now - (e.timestamp ?? now);
+      const ageLabel = ageMs < 30_000 ? 'just now'
+        : ageMs < 120_000 ? `${Math.round(ageMs / 1000)}s ago`
+        : `${Math.round(ageMs / 60_000)}m ago`;
+      const agentLabel = e.agentId.toUpperCase();
+      return `→ ${agentLabel} noted (${ageLabel}): "${e.content}"`;
+    });
+    return [
+      ...lines,
+      "",
+      `If any of the above is directly relevant to YOUR concern, address it explicitly.`,
+      `Start with "Building on what ${blackboard[0]?.agentId ?? 'my colleague'} said..." or "I'd push back on that — ..."`
+    ].join("\n");
+  }
+
+  // =========================================================================
+  // Persona + company helpers
+  // =========================================================================
+
+  /**
+   * Renders the agent's character card — injected at the top of every prompt.
+   * Returns empty string if no persona is set (graceful degradation).
+   */
+  protected buildPersonaBlock(): string {
+    if (!this.persona) {
+      return `You are a ${this.role} stakeholder in this meeting.`;
+    }
+    return [
+      `## Who You Are`,
+      `${this.persona.identity}`,
+      ``,
+      `**How you speak:** ${this.persona.speakingStyle}`,
+      `**What you care about:** ${this.persona.opinionBiases.join('; ')}.`,
+      `**What you do NOT comment on:** ${this.persona.domainBoundaries.join(', ')}.`,
+      `**You only interrupt when:** ${this.persona.interruptCondition}`,
+      ``,
+      `When you do speak, you sound like this:`,
+      `"${this.persona.exampleInterrupt}"`,
+    ].join('\n');
+  }
+
+  /**
+   * Renders the company context block — shared ground truth for all agents.
+   * Returns empty string if no company is set.
+   */
+  protected buildCompanyBlock(): string {
+    if (!this.company) return '';
+    return [
+      ``,
+      `## Company Context`,
+      `**${this.company.name}** — ${this.company.stage}`,
+      `Domain: ${this.company.domain} | Team: ${this.company.teamSize} people`,
+      `Tech stack: ${this.company.techStack.join(', ')}`,
+      `Current priorities: ${this.company.currentPriorities.join('; ')}`,
+      `Recent decisions: ${this.company.recentDecisions.join('; ')}`,
+      `Meeting objective: ${this.company.meetingObjective}`,
+    ].join('\n');
+  }
+
+  /**
+   * Builds the chain-of-thought urgency reasoning protocol.
+   * Forces the agent to justify its urgency score before outputting it.
+   */
+  protected buildUrgencyProtocol(): string {
+    const boundaries = this.persona?.domainBoundaries.join(', ') ?? 'out-of-domain topics';
+    const condition = this.persona?.interruptCondition ?? 'when you have something genuinely important to add';
+    return [
+      `## Decision Protocol — Follow These Steps In Order`,
+      ``,
+      `**Step 1 — Domain Check:** Does this delta touch your domain (${this.responsibilities.join(', ')})?`,
+      `If NO → return null proposal immediately.`,
+      ``,
+      `**Step 2 — Trigger Identification:** Quote the EXACT text from the delta that concerns you.`,
+      `What is specifically wrong or risky about it?`,
+      ``,
+      `**Step 3 — Urgency Calibration** (use ONLY this scale):`,
+      `- 0.1–0.3: Nice to mention later, not time-sensitive`,
+      `- 0.4–0.6: Should be said in this meeting, the team needs to know`,
+      `- 0.7–0.8: Must be said NOW — a decision is being made on wrong assumptions`,
+      `- 0.9–1.0: STOP THE ROOM. Serious harm if not corrected immediately`,
+      ``,
+      `**Step 4 — Boundary Check:** Does this cross into [${boundaries}]? If YES → null.`,
+      ``,
+      `**Step 5 — Silence Check:** Would a real expert stay quiet here?`,
+      `You only interrupt when: ${condition}`,
+      ``,
+      `Respond ONLY with this JSON (no prose, no markdown fences):`,
+      `{`,
+      `  "shouldSpeak": true|false,`,
+      `  "triggerQuote": "exact text from delta that triggered this — or null",`,
+      `  "urgencyReason": "one sentence: why THIS urgency level specifically",`,
+      `  "proposal": {"agentId": "${this.id}", "content": "<your intervention — 1-2 sentences>", "urgency": 0.0-1.0} | null,`,
+      `  "blackboardEntries": [{"agentId": "${this.id}", "content": "<observation for other agents>"}]`,
+      `}`,
+    ].join('\n');
   }
 }

@@ -67,12 +67,18 @@ describe('DecisionTracker', () => {
         timestamp: 1000,
       },
     ]);
-    state.decisions[0].supporting.push({
-      id: 'argument-1',
-      content: 'Operational overhead is lower',
-      stance: 'support',
-      sourceUnitId: 'unit-1',
-    });
+    state.decisions[0] = {
+      ...state.decisions[0],
+      supporting: [
+        ...state.decisions[0].supporting,
+        {
+          id: 'argument-1',
+          content: 'Operational overhead is lower',
+          stance: 'support',
+          sourceUnitId: 'unit-1',
+        }
+      ]
+    };
 
     tracker.track(state, [
       {
@@ -116,12 +122,18 @@ describe('DecisionTracker dedup', () => {
         timestamp: 1000,
       },
     ]);
-    state.decisions[0].supporting.push({
-      id: 'argument-1',
-      content: 'Lower operational overhead',
-      stance: 'support',
-      sourceUnitId: 'unit-1',
-    });
+    state.decisions[0] = {
+      ...state.decisions[0],
+      supporting: [
+        ...state.decisions[0].supporting,
+        {
+          id: 'a1',
+          content: 'We need high throughput.',
+          stance: 'support',
+          sourceUnitId: 'u1',
+        }
+      ]
+    };
 
     tracker.track(state, [
       {
@@ -181,7 +193,7 @@ describe('RiskTracker', () => {
       ],
       1000,
     );
-    state.risks[1].mitigation = 'Cap monthly spend';
+    state.risks[1] = { ...state.risks[1], mitigation: 'Cap monthly spend' };
 
     tracker.track(
       state,

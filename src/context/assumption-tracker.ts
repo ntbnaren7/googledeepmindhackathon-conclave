@@ -1,8 +1,8 @@
-import { Assumption, ContextState, IAssumption } from '../shared/types';
+import { Assumption, ContextState, AgentAssumption } from '../shared/types';
 import { bestMatchIndex } from './matcher';
 
 export class AssumptionTracker {
-  track(state: ContextState, assumptions: readonly IAssumption[], timestamp: number): boolean {
+  track(state: ContextState, assumptions: readonly AgentAssumption[], timestamp: number): boolean {
     let changed = false;
 
     for (const assumption of assumptions) {
@@ -15,7 +15,7 @@ export class AssumptionTracker {
 
 function upsertAssumption(
   state: ContextState,
-  assumption: IAssumption,
+  assumption: AgentAssumption,
   timestamp: number,
 ): boolean {
   const existingIndex = findAssumptionIndex(state, assumption);
@@ -38,7 +38,7 @@ function upsertAssumption(
   return true;
 }
 
-function findAssumptionIndex(state: ContextState, assumption: IAssumption): number {
+function findAssumptionIndex(state: ContextState, assumption: AgentAssumption): number {
   const byId = state.assumptions.findIndex((candidate) => candidate.id === assumption.id);
   if (byId >= 0) return byId;
   return bestMatchIndex(assumption.statement, state.assumptions, (a) => a.content);

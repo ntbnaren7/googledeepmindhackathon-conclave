@@ -2,14 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BaseAgent } from "@agents/base-agent";
 import {
   IBlackboardState,
-  IContextSnapshot,
+  AgentContextSnapshot,
   IAgentProposal,
-  ISemanticDelta,
+  SemanticDelta,
 } from "@shared/types";
-
-// ---------------------------------------------------------------------------
-// Test agent — minimal concrete implementation
-// ---------------------------------------------------------------------------
 
 class TestAgent extends BaseAgent {
   readonly id = "test-agent";
@@ -45,7 +41,7 @@ class SelectiveAgent extends BaseAgent {
     });
   }
 
-  protected override isRelevantDelta(delta: ISemanticDelta): boolean {
+  protected override isRelevantDelta(delta: SemanticDelta): boolean {
     return delta.topics.length > 0;
   }
 }
@@ -54,7 +50,7 @@ class SelectiveAgent extends BaseAgent {
 // Fixtures
 // ---------------------------------------------------------------------------
 
-const snapshot: IContextSnapshot = {
+const snapshot: AgentContextSnapshot = {
   topics: [],
   decisions: [],
   assumptions: [],
@@ -62,7 +58,7 @@ const snapshot: IContextSnapshot = {
   timestamp: 1000,
 };
 
-const delta: ISemanticDelta = {
+const delta: SemanticDelta = {
   units: [],
   topics: [],
   decisions: [],
@@ -70,7 +66,7 @@ const delta: ISemanticDelta = {
   risks: [],
 };
 
-const deltaWithTopics: ISemanticDelta = {
+const deltaWithTopics: SemanticDelta = {
   units: [],
   topics: [{ id: "t1", label: "Architecture", confidence: 0.9 }],
   decisions: [],
@@ -368,7 +364,7 @@ describe("BaseAgent", () => {
 
     it("formats snapshot topics in prompt", async () => {
       const agent = new TestAgent([""]);
-      const snap: IContextSnapshot = {
+      const snap: AgentContextSnapshot = {
         topics: [{ id: "t1", label: "Migration", confidence: 0.9 }],
         decisions: [],
         assumptions: [],
@@ -383,7 +379,7 @@ describe("BaseAgent", () => {
 
     it("formats delta decisions in prompt", async () => {
       const agent = new TestAgent([""]);
-      const d: ISemanticDelta = {
+      const d: SemanticDelta = {
         units: [],
         topics: [],
         decisions: [{ id: "d1", description: "Use React", status: "approved", timestamp: 1000 }],

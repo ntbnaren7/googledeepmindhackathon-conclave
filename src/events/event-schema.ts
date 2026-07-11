@@ -17,11 +17,16 @@ export interface EventPayloadMap {
   [EventType.DELTA_PRODUCED]: { readonly delta: SemanticDelta };
   [EventType.CYCLE_STARTED]: Record<string, never>;
   [EventType.CYCLE_COMPLETED]: Record<string, never>; // To be updated by Kernel
-  [EventType.INTERRUPT_GRANTED]: Record<string, never>;
-  [EventType.AGENT_SPEAKING]: Record<string, never>;
+  [EventType.INTERRUPT_GRANTED]: {
+    readonly proposal: import('../shared/types').IAgentProposal;
+    readonly tickId: string;
+    readonly contextVersion: number;
+    readonly timestamp: number;
+  };
+  [EventType.AGENT_SPEAKING]: { readonly audioBuffer?: ArrayBuffer };
   [EventType.AGENT_FINISHED]: Record<string, never>;
   [EventType.BLACKBOARD_UPDATED]: Record<string, never>;
-  [EventType.CONTEXT_UPDATED]: { readonly snapshotId: string };
+  [EventType.CONTEXT_UPDATED]: { readonly snapshotId: string; readonly delta: SemanticDelta; };
   [EventType.MEETING_STARTED]: Record<string, never>;
   [EventType.TOPIC_CHANGED]: Record<string, never>;
 }

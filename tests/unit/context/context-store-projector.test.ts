@@ -67,7 +67,7 @@ describe('ContextProjector', () => {
     expect(Object.isFrozen(snapshot.decisions)).toBe(true);
     expect(Object.isFrozen(snapshot.decisions[0])).toBe(true);
 
-    state.decisions[0].statement = 'Use Cloud SQL';
+    state.decisions[0] = { ...state.decisions[0], statement: 'Use Cloud SQL' };
 
     expect(snapshot.decisions[0].statement).toBe('Use managed Postgres');
   });
