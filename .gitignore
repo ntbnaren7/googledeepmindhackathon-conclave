@@ -44,3 +44,5 @@ tmp/
 temp/
 coverage/
 .nyc_output/
+.npm-cache
+docs/superpowers

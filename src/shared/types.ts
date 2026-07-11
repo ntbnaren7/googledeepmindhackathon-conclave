@@ -48,6 +48,107 @@ export interface ISemanticDelta {
   risks: IRisk[];
 }
 
+export type SemanticUnitType =
+  | "proposal"
+  | "decision"
+  | "assumption"
+  | "risk"
+  | "question"
+  | "objection"
+  | "clarification"
+  | "statement"
+  | "agreement";
+
+export type Domain = "architecture" | "product" | "finance" | "research" | null;
+
+export interface SemanticUnit {
+  readonly id: string;
+  readonly type: SemanticUnitType;
+  readonly content: string;
+  readonly confidence: number;
+  readonly domain: Domain;
+  readonly speakerId?: string;
+  readonly timestamp: number;
+}
+
+export interface Argument {
+  id: string;
+  content: string;
+  stance: "support" | "oppose";
+  speakerId?: string;
+  sourceUnitId: string;
+}
+
+export interface DecisionNode {
+  id: string;
+  statement: string;
+  status: "proposed" | "decided" | "rejected";
+  supporting: Argument[];
+  opposing: Argument[];
+  timestamp: number;
+}
+
+export interface Assumption {
+  id: string;
+  content: string;
+  status: "active" | "challenged" | "validated" | "invalidated";
+  sourceUnitId: string;
+  timestamp: number;
+}
+
+export interface Risk {
+  id: string;
+  content: string;
+  severity: "low" | "med" | "high";
+  mitigation?: string;
+  status: "open" | "mitigated";
+  timestamp: number;
+}
+
+export interface Topic {
+  id: string;
+  title: string;
+  startedAtTimestamp: number;
+}
+
+export interface ContextState {
+  currentTopic: Topic | null;
+  topicHistory: Topic[];
+  decisions: DecisionNode[];
+  assumptions: Assumption[];
+  risks: Risk[];
+  interventions: unknown[];
+}
+
+export interface ContextSnapshot {
+  readonly id: string;
+  readonly timestamp: number;
+  readonly currentTopic: Topic | null;
+  readonly topicHistory: readonly Topic[];
+  readonly decisions: readonly DecisionNode[];
+  readonly assumptions: readonly Assumption[];
+  readonly risks: readonly Risk[];
+  readonly interventions: readonly unknown[];
+}
+
+export interface KnowledgeEntry {
+  id: string;
+  type: SemanticUnitType;
+  content: string;
+  domain: Domain;
+  speakerId?: string;
+  timestamp: number;
+}
+
+export interface MeetingRecord {
+  readonly topics: readonly Topic[];
+  readonly decisions: readonly DecisionNode[];
+  readonly assumptions: readonly Assumption[];
+  readonly risks: readonly Risk[];
+  readonly interventions: readonly unknown[];
+  readonly generatedAt: number;
+}
+
 export interface IContextSnapshot {
   topics: ITopic[];
   decisions: IDecision[];
