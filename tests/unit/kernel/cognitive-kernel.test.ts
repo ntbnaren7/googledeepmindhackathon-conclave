@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { CognitiveKernel } from '../../../src/kernel/cognitive-kernel';
-import { IArbitrator, IBlackboard, IAttentionGate, IAttentionBudget, ITimeProvider } from '../../../src/kernel/interfaces';
 import { IAgentProposal } from '../../../src/shared/types';
 
 describe('CognitiveKernel', () => {
@@ -65,11 +64,13 @@ describe('CognitiveKernel', () => {
     expect(attentionBudget.canInterrupt).toHaveBeenCalled();
     expect(attentionGate.tryGrant).toHaveBeenCalledWith(proposal);
     expect(attentionBudget.consume).toHaveBeenCalledWith(10);
-    expect(blackboard.post).toHaveBeenCalledWith([{
-      agentId: 'A1',
-      content: 'hello',
-      timestamp: 1000
-    }]);
+    expect(blackboard.post).toHaveBeenCalledWith([
+      {
+        agentId: 'A1',
+        content: 'hello',
+        timestamp: 1000,
+      },
+    ]);
     expect(blackboard.rotate).toHaveBeenCalled();
   });
 
