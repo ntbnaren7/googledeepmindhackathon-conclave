@@ -149,6 +149,50 @@ describe('ContextEngine', () => {
     ).toHaveLength(1);
   });
 
+  it('links objection and agreement units to the matching decision', () => {
+    const knowledgeGraph = new KnowledgeGraph();
+    const engine = new ContextEngine(new EventBus(), knowledgeGraph);
+
+    engine.handleDelta({
+      units: [
+        {
+          id: 'unit-obj',
+          speakerId: 'speaker-1',
+          content: 'Managed Postgres will lock us into one cloud vendor',
+          timestamp: 1000,
+          type: 'objection',
+        },
+        {
+          id: 'unit-agr',
+          speakerId: 'speaker-2',
+          content: 'Managed Postgres reduces our operational burden',
+          timestamp: 1001,
+          type: 'agreement',
+        },
+      ],
+      topics: [],
+      decisions: [
+        {
+          id: 'decision-1',
+          description: 'Adopt managed Postgres for our database',
+          status: 'proposed',
+          timestamp: 999,
+        },
+      ],
+      assumptions: [],
+      risks: [],
+    });
+
+    const decision = engine.getSnapshot().decisions[0];
+    expect(decision.opposing).toHaveLength(1);
+    expect(decision.opposing[0].sourceUnitId).toBe('unit-obj');
+    expect(decision.supporting).toHaveLength(1);
+    expect(decision.supporting[0].stance).toBe('support');
+    // Change D: units are stored in the knowledge graph with their real type.
+    expect(knowledgeGraph.getByType('objection')).toHaveLength(1);
+    expect(knowledgeGraph.getByType('agreement')).toHaveLength(1);
+  });
+
   it('ignores empty deltas without publishing context updates', () => {
     const eventBus = new EventBus();
     const knowledgeGraph = new KnowledgeGraph();
