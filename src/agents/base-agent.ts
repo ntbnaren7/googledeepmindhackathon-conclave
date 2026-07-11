@@ -10,7 +10,7 @@ import {
 import { logger } from "@shared/logger";
 import { RUNTIME_CONSTANTS } from "@shared/constants";
 import { InterventionScorer } from "./intervention-scorer";
-import { IStakeholderAgent } from "./interfaces";
+import { IStakeholderAgent, ILlmClient } from "./interfaces";
 
 // ---------------------------------------------------------------------------
 // Types consumed by the child-class hook methods
@@ -46,31 +46,43 @@ export interface ParsedEvaluation {
  * Implements the two-phase pipeline every agent follows:
  *
  *  **evaluate** (decide whether to intervene)
- *    1. Assemble prompt context from snapshot + delta + blackboard
- *    2. Build prompt via child hook          (buildEvaluationPrompt)
- *    3. Call LLM                             (callLLM)
- *    4. Parse raw text → structured data     (parseEvaluationOutput)
- *    5. Filter duplicate proposals           (filterByNovelty)
- *    6. Record proposal in history
- *    7. Return IAgentResult
+ *    1. Check relevance of delta against agent's domain
+ *    2. If relevant, assemble prompt context
+ *    3. Build prompt via child hook          (buildEvaluationPrompt)
+ *    4. Call injected LLM client             (llmClient.generate)
+ *    5. Parse raw text → structured data     (parseEvaluationOutput)
+ *    6. Filter duplicate proposals           (filterByNovelty)
+ *    7. Record proposal in history
+ *    8. Return IAgentResult
  *
  *  **generateResponse** (speak after being granted the floor)
  *    1. Assemble prompt context from snapshot + proposal
  *    2. Build prompt via child hook          (buildResponsePrompt)
- *    3. Call LLM                             (callLLM)
+ *    3. Call injected LLM client             (llmClient.generate)
  *    4. Parse raw text → structured response (parseResponseOutput)
  *    5. Return IAgentResponse
  *
  * Child classes override the four hook methods to provide domain-specific
  * prompts and output parsing.  Everything else stays in the base class.
+ *
+ * Important architectural constraints:
+ *   - Does NOT inspect raw transcript or classify conversation
+ *   - Does NOT detect proposals/assumptions/decisions (done by Kernel)
+ *   - Does NOT extract semantic units (done by Perception/Compressor)
+ *   - Receives already-structured data from upstream pipeline
  */
 export abstract class BaseAgent implements IStakeholderAgent {
-  abstract id: string;
-  abstract role: string;
-  abstract responsibilities: string[];
+  abstract readonly id: string;
+  abstract readonly role: string;
+  abstract readonly responsibilities: string[];
 
+  private readonly llmClient: ILlmClient;
   private readonly scorer = new InterventionScorer();
   private proposalHistory: IAgentProposal[] = [];
+
+  constructor(llmClient: ILlmClient) {
+    this.llmClient = llmClient;
+  }
 
   // =========================================================================
   // Public pipeline — do NOT override in child classes
@@ -87,6 +99,14 @@ export abstract class BaseAgent implements IStakeholderAgent {
     blackboard: IBlackboardState,
   ): Promise<IAgentResult> {
     try {
+      // Step 0 — lightweight relevance check
+      if (!this.isRelevantDelta(delta)) {
+        logger.debug("Delta not relevant to agent", {
+          agentId: this.id,
+        });
+        return { proposal: null, blackboardEntries: [] };
+      }
+
       // Step 1 — assemble the prompt context for the child hook
       const promptCtx: EvaluationPromptContext = {
         snapshot,
@@ -99,8 +119,8 @@ export abstract class BaseAgent implements IStakeholderAgent {
       // Step 2 — delegate prompt creation to the child class
       const prompt = this.buildEvaluationPrompt(promptCtx);
 
-      // Step 3 — send the prompt to the LLM
-      const raw = await this.callLLM(prompt);
+      // Step 3 — send the prompt to the injected LLM client
+      const raw = await this.llmClient.generate(prompt);
 
       // Step 4 — parse the raw LLM response into structured data
       const parsed = this.parseEvaluationOutput(raw);
@@ -148,8 +168,8 @@ export abstract class BaseAgent implements IStakeholderAgent {
       // Step 2 — delegate prompt creation to the child class
       const prompt = this.buildResponsePrompt(promptCtx);
 
-      // Step 3 — send the prompt to the LLM
-      const raw = await this.callLLM(prompt);
+      // Step 3 — send the prompt to the injected LLM client
+      const raw = await this.llmClient.generate(prompt);
 
       // Step 4 — parse the raw LLM response
       const response = this.parseResponseOutput(raw);
@@ -178,6 +198,15 @@ export abstract class BaseAgent implements IStakeholderAgent {
   // =========================================================================
   // Hook methods — override in child classes to specialize behaviour
   // =========================================================================
+
+  /**
+   * Check if the semantic delta is relevant to this agent's domain.
+   * Default implementation returns true for all deltas.
+   * Override to filter out irrelevant updates (e.g., CTO ignores marketing).
+   */
+  protected isRelevantDelta(_delta: ISemanticDelta): boolean {
+    return true;
+  }
 
   /**
    * Build the LLM prompt used during the evaluation phase.
@@ -269,17 +298,6 @@ export abstract class BaseAgent implements IStakeholderAgent {
     return { content: String(json.content ?? ""), tone };
   }
 
-  /**
-   * Send a prompt to the LLM and return the raw text output.
-   * Override in child classes to wire up the actual Gemini / API client.
-   */
-  protected async callLLM(_prompt: string): Promise<string> {
-    logger.warn("callLLM not implemented; returning empty response", {
-      agentId: this.id,
-    });
-    return "";
-  }
-
   // =========================================================================
   // Private pipeline helpers
   // =========================================================================
@@ -369,7 +387,7 @@ export abstract class BaseAgent implements IStakeholderAgent {
   }
 
   /** Format a context snapshot into a human-readable string for LLM prompts. */
-  private formatSnapshot(snap: IContextSnapshot): string {
+  protected formatSnapshot(snap: IContextSnapshot): string {
     const lines: string[] = [];
     if (snap.topics.length > 0) {
       lines.push(`Topics: ${snap.topics.map((t) => t.label).join(", ")}`);
@@ -393,7 +411,7 @@ export abstract class BaseAgent implements IStakeholderAgent {
   }
 
   /** Format a semantic delta into a human-readable string for LLM prompts. */
-  private formatDelta(delta: ISemanticDelta): string {
+  protected formatDelta(delta: ISemanticDelta): string {
     const lines: string[] = [];
     if (delta.units.length > 0) {
       lines.push(`New utterances: ${delta.units.length}`);
@@ -420,7 +438,7 @@ export abstract class BaseAgent implements IStakeholderAgent {
   }
 
   /** Format the blackboard state into a human-readable string for LLM prompts. */
-  private formatBlackboard(blackboard: IBlackboardState): string {
+  protected formatBlackboard(blackboard: IBlackboardState): string {
     if (blackboard.length === 0) return "(Empty)";
     return blackboard
       .map((e) => `[${e.agentId}] ${e.content}`)
