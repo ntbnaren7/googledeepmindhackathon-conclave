@@ -10,7 +10,7 @@ export const RUNTIME_CONSTANTS = Object.freeze({
   THRESHOLD_DECREASE_STEP: 0.02,        // FR-806
   
   // New: Arbitration Policy
-  AGENT_COOLDOWN_MS: 60000,
+  AGENT_COOLDOWN_MS: 15000,             // 15s between interruptions per agent
   SIMILARITY_NOVELTY_THRESHOLD: 0.85,
   IN_FLOW_THRESHOLD_MULTIPLIER: 1.5,
   MAX_HISTORY: 50,

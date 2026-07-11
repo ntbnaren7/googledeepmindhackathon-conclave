@@ -15,6 +15,12 @@ export interface PerceptionSessionConfig {
   compressionIntervalMs: number;
   /** When true, use the mock connector instead of real Gemini Live. */
   useMock?: boolean;
+  /**
+   * System instruction injected into the Live session.
+   * Defaults to a generic assistant if not provided.
+   * Pass the full expert-council persona here for real-time agent interruption.
+   */
+  systemInstruction?: string;
 }
 
 /**
@@ -26,10 +32,18 @@ export interface IGeminiLiveConnector {
   disconnect(): Promise<void>;
   /** Push an audio chunk to the stream. */
   streamAudio(chunk: AudioChunk): void;
+  /** Inject text as a model turn — the model speaks it back as audio. */
+  sendText(text: string): void;
+  /** Returns true if the session is currently connected. */
+  isConnected(): boolean;
   /** Register the transcript callback. */
   onTranscript(handler: (raw: RawTranscript) => void): void;
-  /** Whether the connector is currently connected. */
-  isConnected(): boolean;
+  /** Register the audio response callback — fired when the model speaks back. */
+  onAudioResponse(handler: (buffer: ArrayBuffer) => void): void;
+  /** Register a callback fired when the model is interrupted mid-sentence by user speech. */
+  onInterrupt(handler: () => void): void;
+  /** Register a callback fired whenever the session is closed (by server or error). */
+  onDisconnect(handler: () => void): void;
 }
 
 /** Converts raw transcript fragments into normalized segments. */
@@ -66,4 +80,5 @@ export interface ISemanticCompressor {
 export interface IPerceptionEngine {
   start(config: PerceptionSessionConfig): Promise<void>;
   stop(): Promise<void>;
+  pushAudio(chunk: AudioChunk): void;
 }

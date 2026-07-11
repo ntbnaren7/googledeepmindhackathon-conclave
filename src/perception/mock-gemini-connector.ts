@@ -44,6 +44,21 @@ export class MockGeminiConnector implements IGeminiLiveConnector {
   private index = 0;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private transcriptHandler: ((raw: RawTranscript) => void) | null = null;
+  // No-op: the mock never drops unexpectedly.
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  onDisconnect(_handler: () => void): void {}
+  // No-op: the mock emits no audio responses.
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  onAudioResponse(_handler: (buffer: ArrayBuffer) => void): void {}
+  // No-op: the mock logs injected text but doesn't voice it.
+  sendText(text: string): void {
+    // eslint-disable-next-line no-console
+    console.info('[mock] sendText:', text.slice(0, 80));
+  }
+  // Mock is always "connected" for demo purposes.
+  isConnected(): boolean { return true; }
+  // No-op: mock never interrupts.
+  onInterrupt(_handler: () => void): void {}
 
   constructor(options: MockGeminiConnectorOptions = {}) {
     this.script = options.script ?? DEFAULT_MOCK_SCRIPT;
@@ -72,10 +87,6 @@ export class MockGeminiConnector implements IGeminiLiveConnector {
       clearTimeout(this.timer);
       this.timer = null;
     }
-  }
-
-  isConnected(): boolean {
-    return this.connected;
   }
 
   private scheduleNext(): void {

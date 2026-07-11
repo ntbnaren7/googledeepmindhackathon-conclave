@@ -4,7 +4,7 @@
   "description": "A Cognitive Operating System for real-time technical decision making",
   "main": "src/index.ts",
   "scripts": {
-    "dev": "ts-node src/index.ts",
+    "dev": "ts-node -r tsconfig-paths/register src/index.ts",
     "dev:ui": "vite",
     "build": "tsc",
     "build:ui": "vite build",
@@ -25,6 +25,7 @@
     "eslint": "^9.x",
     "prettier": "^3.x",
     "ts-node": "^10.x",
+    "tsconfig-paths": "^4.2.0",
     "typescript": "^5.x",
     "vite": "^5.x",
     "vite-tsconfig-paths": "^5.x",

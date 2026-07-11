@@ -1,7 +1,7 @@
-import { ContextState, ITopic, Topic } from '../shared/types';
+import { ContextState, AgentTopic, Topic } from '../shared/types';
 
 export class TopicTracker {
-  track(state: ContextState, topics: readonly ITopic[], timestamp: number): boolean {
+  track(state: ContextState, topics: readonly AgentTopic[], timestamp: number): boolean {
     let changed = false;
 
     for (const topic of topics) {
@@ -11,8 +11,8 @@ export class TopicTracker {
     return changed;
   }
 
-  private trackTopic(state: ContextState, topic: ITopic, timestamp: number): boolean {
-    if (state.currentTopic?.id === topic.id) {
+  private trackTopic(state: ContextState, topic: AgentTopic, timestamp: number): boolean {
+    if (state.currentTopic && state.currentTopic.id === topic.id) {
       const nextTopic: Topic = {
         id: topic.id,
         title: topic.label,

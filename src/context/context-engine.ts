@@ -4,8 +4,8 @@ import {
   Argument,
   ContextSnapshot,
   ContextState,
+  AgentSemanticUnit,
   DecisionNode,
-  ISemanticUnit,
   MeetingRecord,
   SemanticDelta,
 } from '../shared/types';
@@ -68,7 +68,7 @@ export class ContextEngine implements IContextEngine {
     this.eventBus?.publish({
       type: EventType.CONTEXT_UPDATED,
       source: SOURCE,
-      payload: { snapshotId: snapshot.id },
+      payload: { snapshotId: snapshot.id, delta },
     });
   }
 
@@ -158,7 +158,7 @@ export class ContextEngine implements IContextEngine {
   }
 }
 
-function linkArgumentUnits(state: ContextState, units: readonly ISemanticUnit[]): boolean {
+function linkArgumentUnits(state: ContextState, units: readonly AgentSemanticUnit[]): boolean {
   let changed = false;
 
   for (const unit of units) {
@@ -173,13 +173,19 @@ function linkArgumentUnits(state: ContextState, units: readonly ISemanticUnit[])
     // Idempotent: the same unit must not attach twice on re-processing.
     if (target.some((argument) => argument.sourceUnitId === unit.id)) continue;
 
-    target.push({
+    const newArgument: Argument = {
       id: generateId(),
       content: unit.content,
       stance,
       speakerId: unit.speakerId,
       sourceUnitId: unit.id,
-    });
+    };
+
+    if (stance === 'oppose') {
+      state.decisions[index] = { ...decision, opposing: [...target, newArgument] };
+    } else {
+      state.decisions[index] = { ...decision, supporting: [...target, newArgument] };
+    }
     changed = true;
   }
 

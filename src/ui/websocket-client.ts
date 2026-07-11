@@ -7,6 +7,10 @@ export interface WebSocketClientOptions {
   url: string;
   mode?: ConnectionMode;
   onMessage: FeedListener;
+  /** Called with raw PCM audio chunks from the model. */
+  onAudio?: (buffer: ArrayBuffer) => void;
+  /** Called when the model is interrupted by user speech — browser should stop audio. */
+  onInterrupt?: () => void;
   /** Optional status callback: 'live' | 'mock' | 'connecting'. */
   onStatus?: (status: 'live' | 'mock' | 'connecting') => void;
 }
@@ -21,6 +25,8 @@ export class WebSocketClient {
   private readonly url: string;
   private readonly mode: ConnectionMode;
   private readonly onMessage: FeedListener;
+  private readonly onAudio?: (buffer: ArrayBuffer) => void;
+  private readonly onInterrupt?: () => void;
   private readonly onStatus?: WebSocketClientOptions['onStatus'];
   private socket: WebSocket | null = null;
   private mockFeed: MockFeed | null = null;
@@ -29,6 +35,8 @@ export class WebSocketClient {
     this.url = options.url;
     this.mode = options.mode ?? 'auto';
     this.onMessage = options.onMessage;
+    this.onAudio = options.onAudio;
+    this.onInterrupt = options.onInterrupt;
     this.onStatus = options.onStatus;
   }
 
@@ -46,7 +54,15 @@ export class WebSocketClient {
     }
 
     this.socket.addEventListener('open', () => this.onStatus?.('live'));
-    this.socket.addEventListener('message', (ev) => this.handleRaw(ev.data));
+    this.socket.addEventListener('message', (ev) => {
+      if (ev.data instanceof ArrayBuffer) {
+        this.handleBinary(ev.data);
+      } else {
+        this.handleRaw(ev.data as string);
+      }
+    });
+    // Ensure binary frames arrive as ArrayBuffer, not Blob.
+    this.socket.binaryType = 'arraybuffer';
     this.socket.addEventListener('error', () => this.handleSocketDown());
     this.socket.addEventListener('close', () => this.handleSocketDown());
   }
@@ -58,9 +74,25 @@ export class WebSocketClient {
     this.mockFeed = null;
   }
 
+  sendAudio(buffer: ArrayBuffer): void {
+    if (this.socket?.readyState === WebSocket.OPEN) {
+      this.socket.send(buffer);
+    }
+  }
+
   private handleSocketDown(): void {
     if (this.mode === 'live') return; // caller insists on live; don't mask it
     if (!this.mockFeed) this.fallbackToMock();
+  }
+
+  private handleBinary(buffer: ArrayBuffer): void {
+    const view = new Uint8Array(buffer);
+    const tag = view[0];
+    if (tag === 0x01) {
+      // PCM audio response from the model — strip the type tag and forward.
+      const pcm = buffer.slice(1);
+      this.onAudio?.(pcm);
+    }
   }
 
   private fallbackToMock(): void {
@@ -96,6 +128,10 @@ export class WebSocketClient {
    */
   private translate(event: { type?: string; payload?: unknown }): UIMessage[] {
     switch (event.type) {
+      case 'agent_interrupted':
+        // Model was interrupted mid-sentence — stop audio playback immediately.
+        this.onInterrupt?.();
+        return [];
       case 'delta.produced': {
         const delta = (event.payload as { delta?: DeltaShape })?.delta;
         if (!delta) return [];

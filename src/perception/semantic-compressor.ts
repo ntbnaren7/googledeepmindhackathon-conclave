@@ -1,12 +1,12 @@
-import { GoogleGenerativeAI, type GenerativeModel } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 import type { ISemanticCompressor } from './interfaces';
 import type { TranscriptSegment } from './types';
 import type {
-  IAssumption,
-  IDecision,
-  IRisk,
-  ISemanticUnit,
-  ITopic,
+  AgentAssumption,
+  AgentDecision,
+  AgentRisk,
+  AgentSemanticUnit,
+  AgentTopic,
   SemanticDelta,
   SemanticUnitType,
 } from '@shared/types';
@@ -22,7 +22,7 @@ export interface SemanticCompressorOptions {
   client?: SemanticCompressionClient;
 }
 
-const DEFAULT_MODEL = 'gemini-1.5-pro';
+const DEFAULT_MODEL = 'gemini-3.5-flash';
 
 export class SemanticCompressor implements ISemanticCompressor {
   private readonly client: SemanticCompressionClient | null;
@@ -73,22 +73,24 @@ export class SemanticCompressor implements ISemanticCompressor {
 }
 
 class GeminiCompressionClient implements SemanticCompressionClient {
-  private readonly model: GenerativeModel;
+  private readonly ai: GoogleGenAI;
+  private readonly modelName: string;
 
   constructor(apiKey: string, modelName: string) {
-    const ai = new GoogleGenerativeAI(apiKey);
-    this.model = ai.getGenerativeModel({
-      model: modelName,
-      generationConfig: {
+    this.ai = new GoogleGenAI({ apiKey });
+    this.modelName = modelName;
+  }
+
+  async generate(prompt: string): Promise<unknown> {
+    const result = await this.ai.models.generateContent({
+      model: this.modelName,
+      contents: prompt,
+      config: {
         responseMimeType: 'application/json',
         temperature: 0.1,
       },
     });
-  }
-
-  async generate(prompt: string): Promise<unknown> {
-    const result = await this.model.generateContent(prompt);
-    return result.response.text();
+    return result.text;
   }
 }
 
@@ -153,7 +155,7 @@ function readSemanticUnitType(value: unknown): SemanticUnitType | null {
     : null;
 }
 
-function normalizeUnit(value: unknown): ISemanticUnit[] {
+function normalizeUnit(value: unknown): AgentSemanticUnit[] {
   if (!isRecord(value)) return [];
 
   const id = readString(value.id);
@@ -163,14 +165,14 @@ function normalizeUnit(value: unknown): ISemanticUnit[] {
 
   if (!id || !speakerId || !content || timestamp === null) return [];
 
-  const unit: ISemanticUnit = { id, speakerId, content, timestamp };
+  const unit: AgentSemanticUnit = { id, speakerId, content, timestamp };
   const type = readSemanticUnitType(value.type);
   if (type) unit.type = type;
 
   return [unit];
 }
 
-function normalizeTopic(value: unknown): ITopic[] {
+function normalizeTopic(value: unknown): AgentTopic[] {
   if (!isRecord(value)) return [];
 
   const id = readString(value.id);
@@ -182,7 +184,7 @@ function normalizeTopic(value: unknown): ITopic[] {
   return [{ id, label, confidence: clamp01(confidence) }];
 }
 
-function normalizeDecision(value: unknown): IDecision[] {
+function normalizeDecision(value: unknown): AgentDecision[] {
   if (!isRecord(value)) return [];
 
   const id = readString(value.id);
@@ -195,7 +197,7 @@ function normalizeDecision(value: unknown): IDecision[] {
   return [{ id, description, status, timestamp }];
 }
 
-function normalizeAssumption(value: unknown): IAssumption[] {
+function normalizeAssumption(value: unknown): AgentAssumption[] {
   if (!isRecord(value)) return [];
 
   const id = readString(value.id);
@@ -206,7 +208,7 @@ function normalizeAssumption(value: unknown): IAssumption[] {
   return [{ id, statement, challenged: value.challenged === true }];
 }
 
-function normalizeRisk(value: unknown): IRisk[] {
+function normalizeRisk(value: unknown): AgentRisk[] {
   if (!isRecord(value)) return [];
 
   const id = readString(value.id);
@@ -218,7 +220,7 @@ function normalizeRisk(value: unknown): IRisk[] {
   return [{ id, description, severity: clamp01(severity) }];
 }
 
-function readDecisionStatus(value: unknown): IDecision['status'] | null {
+function readDecisionStatus(value: unknown): AgentDecision['status'] | null {
   if (value === 'proposed' || value === 'approved' || value === 'rejected') {
     return value;
   }

@@ -1,4 +1,4 @@
-import { IAgentProposal, IBlackboardEntry, IBlackboardState, ArbitrationResult } from '../shared/types';
+import { IAgentProposal, IBlackboardEntry, IBlackboardState, ArbitrationResult, AgentContextSnapshot, SemanticDelta, IAgentResult } from '../shared/types';
 // ── Time Abstraction ──
 
 export interface ITimeProvider {
@@ -53,8 +53,29 @@ export interface IAttentionGate {
 }
 
 export interface ICognitiveKernel {
-  start(config: any): Promise<void>;
+  start(config?: any): Promise<void>;
   stop(): Promise<void>;
+  wake(snapshot: import('../shared/types').ContextSnapshot, delta: import('../shared/types').SemanticDelta): Promise<void>;
+}
+
+// ── Scheduler ──
+
+export interface EvaluationContext {
+  readonly tickId: string;
+  readonly contextVersion: number;
+  readonly snapshot: AgentContextSnapshot;
+  readonly delta: SemanticDelta;
+  readonly blackboard: IBlackboardState;
+  readonly budget: number;
+  readonly timestamp: number;
+}
+
+export interface SchedulerConfig {
+  readonly timeoutMs: number;
+}
+
+export interface ICognitiveScheduler {
+  dispatch(ctx: EvaluationContext, config?: SchedulerConfig): Promise<IAgentResult[]>;
 }
 
 // ── Semantic Comparison ──

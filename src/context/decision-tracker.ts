@@ -1,8 +1,8 @@
-import { ContextState, DecisionNode, IDecision } from '../shared/types';
+import { ContextState, DecisionNode, AgentDecision } from '../shared/types';
 import { bestMatchIndex } from './matcher';
 
 export class DecisionTracker {
-  track(state: ContextState, decisions: readonly IDecision[]): boolean {
+  track(state: ContextState, decisions: readonly AgentDecision[]): boolean {
     let changed = false;
 
     for (const decision of decisions) {
@@ -13,7 +13,7 @@ export class DecisionTracker {
   }
 }
 
-function findDecisionIndex(state: ContextState, decision: IDecision): number {
+function findDecisionIndex(state: ContextState, decision: AgentDecision): number {
   const byId = state.decisions.findIndex((candidate) => candidate.id === decision.id);
   if (byId >= 0) return byId;
   // Fall back to content similarity so a re-worded decision with a fresh id
@@ -21,7 +21,7 @@ function findDecisionIndex(state: ContextState, decision: IDecision): number {
   return bestMatchIndex(decision.description, state.decisions, (d) => d.statement);
 }
 
-function upsertDecision(state: ContextState, decision: IDecision): boolean {
+function upsertDecision(state: ContextState, decision: AgentDecision): boolean {
   const existingIndex = findDecisionIndex(state, decision);
   const existing = existingIndex >= 0 ? state.decisions[existingIndex] : null;
   const nextDecision: DecisionNode = {
@@ -43,7 +43,7 @@ function upsertDecision(state: ContextState, decision: IDecision): boolean {
   return true;
 }
 
-function mapDecisionStatus(status: IDecision['status']): DecisionNode['status'] {
+function mapDecisionStatus(status: AgentDecision['status']): DecisionNode['status'] {
   if (status === 'approved') return 'decided';
   return status;
 }

@@ -7,11 +7,12 @@ import type {
   ISemanticCompressor,
   PerceptionSessionConfig,
 } from './interfaces';
-import type { RawTranscript, TranscriptSegment, Speaker } from './types';
+import type { RawTranscript, TranscriptSegment, Speaker, AudioChunk } from './types';
 import type { IEventBus } from '@events/interfaces';
 import type { SemanticDelta } from '@shared/types';
 import { EventType } from '@events/event-types';
 import { logger } from '@shared/logger';
+import type { AgentLivePool } from './agent-live-pool';
 
 export interface PerceptionEngineDeps {
   eventBus: IEventBus;
@@ -20,6 +21,12 @@ export interface PerceptionEngineDeps {
   diarization: IDiarizationTracker;
   pauseDetector: IPauseDetector;
   compressor: ISemanticCompressor;
+  /**
+   * The multi-agent Live pool.
+   * When provided, each audio chunk is fanned to all four agent sessions
+   * in parallel with the main connector.
+   */
+  agentPool?: AgentLivePool;
 }
 
 /** Source tag stamped on every event this module publishes. */
@@ -57,6 +64,8 @@ export class PerceptionEngine implements IPerceptionEngine {
   private flushTimer: ReturnType<typeof setInterval> | null = null;
   private currentSpeaker: Speaker | null = null;
   private running = false;
+  private liveConnected = false;
+  private connecting = false;
 
   constructor(deps: PerceptionEngineDeps) {
     this.deps = deps;
@@ -68,11 +77,28 @@ export class PerceptionEngine implements IPerceptionEngine {
     this.running = true;
 
     this.deps.connector.onTranscript((raw) => this.handleTranscript(raw));
-    await this.deps.connector.connect();
+    this.deps.connector.onAudioResponse((buffer) => {
+      // Forward model audio directly to the event bus so the WS server
+      // can stream it to connected browser clients for playback.
+      this.deps.eventBus.publish({
+        type: EventType.AGENT_SPEAKING,
+        payload: { audioBuffer: buffer },
+        source: SOURCE,
+      });
+    });
+    this.deps.connector.onDisconnect(() => {
+      // Reset so the next audio chunk triggers a fresh lazy connect.
+      this.liveConnected = false;
+      this.connecting = false;
+      logger.warn('[perception] live connector dropped; will reconnect on next audio chunk');
+    });
+    // NOTE: We intentionally do NOT connect here. The Gemini Live API drops
+    // idle sessions, so we defer connection until the first audio chunk
+    // arrives via pushAudio(). This prevents the reconnect loop at startup.
 
     // Periodic flush so a partial batch still gets compressed.
     this.flushTimer = setInterval(() => void this.flush(), config.compressionIntervalMs);
-    logger.info('[perception] started', { meetingId: config.meetingId });
+    logger.info('[perception] started (connector deferred until audio arrives)', { meetingId: config.meetingId });
   }
 
   async stop(): Promise<void> {
@@ -84,6 +110,36 @@ export class PerceptionEngine implements IPerceptionEngine {
     await this.flush(); // drain remaining segments
     await this.deps.connector.disconnect();
     logger.info('[perception] stopped');
+  }
+
+  pushAudio(chunk: AudioChunk): void {
+    if (!this.running) return;
+
+    // Lazily connect on first audio chunk.
+    if (!this.liveConnected && !this.connecting) {
+      this.connecting = true;
+      this.deps.connector.connect()
+        .then(() => {
+          this.liveConnected = true;
+          this.connecting = false;
+          logger.info('[perception] live connector opened on first audio');
+          // Stream the chunk that triggered the connect.
+          this.deps.connector.streamAudio(chunk);
+          // Also fan to agent pool (it handles its own lazy connect internally).
+          this.deps.agentPool?.pushAudio(chunk);
+        })
+        .catch((err) => {
+          this.connecting = false;
+          logger.error('[perception] deferred connect failed', { error: String(err) });
+        });
+      return;
+    }
+
+    if (this.liveConnected) {
+      this.deps.connector.streamAudio(chunk);
+      // Fan the same chunk to all four agent sessions simultaneously.
+      this.deps.agentPool?.pushAudio(chunk);
+    }
   }
 
   private handleTranscript(raw: RawTranscript): void {
