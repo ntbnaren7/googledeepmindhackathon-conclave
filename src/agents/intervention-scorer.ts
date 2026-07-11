@@ -2,7 +2,7 @@ import {
   IAgentProposal,
   IContextSnapshot,
 } from "@shared/types";
-import { RUNTIME_CONSTANTS } from "@shared/constants";
+import { clamp } from "@shared/utils";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -15,7 +15,13 @@ export interface IUrgeParams {
   history: readonly IAgentProposal[];
 }
 
-/** Full scoring breakdown returned by `scoreProposal`. */
+/**
+ * Full scoring breakdown returned by `scoreProposal`.
+ *
+ * The interrupt decision (shouldInterrupt) is NOT computed here.
+ * That is a Kernel/Arbitrator concern that depends on cooldown state,
+ * speaker flow, and attention budget — none of which the scorer has.
+ */
 export interface ScoringResult {
   /** How confident the agent should be in this proposal (0–1). */
   confidence: number;
@@ -25,8 +31,6 @@ export interface ScoringResult {
   novelty: number;
   /** Weighted composite score (0–1). */
   score: number;
-  /** Whether the interruption is worth making right now. */
-  shouldInterrupt: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -130,7 +134,7 @@ export class InterventionScorer {
     }
 
     // Novelty = 1 − maxSimilarity
-    return InterventionScorer.clamp(1 - maxSimilarity, 0, 1);
+    return clamp(1 - maxSimilarity, 0, 1);
   }
 
   /**
@@ -147,7 +151,7 @@ export class InterventionScorer {
     const { proposal, context } = params;
 
     // Signal 1 — the LLM's own urgency rating (weight: 50%)
-    const selfUrgency = InterventionScorer.clamp(proposal.urgency, 0, 1);
+    const selfUrgency = clamp(proposal.urgency, 0, 1);
 
     // Signal 2 — keyword density (weight: 30%)
     const keywordUrgency = InterventionScorer.keywordHitRate(
@@ -178,7 +182,7 @@ export class InterventionScorer {
     // Signal 1 — content length (weight: 40%)
     // Sigmoid-like curve: short content → low, long → high, capped at ~200 chars
     const wordCount = InterventionScorer.tokenize(proposal.content).length;
-    const lengthScore = InterventionScorer.clamp(wordCount / 40, 0, 1);
+    const lengthScore = clamp(wordCount / 40, 0, 1);
 
     // Signal 2 — evidence keyword density (weight: 35%)
     const evidenceScore = InterventionScorer.keywordHitRate(
@@ -218,7 +222,7 @@ export class InterventionScorer {
     const unresolvedAssumptions = context.assumptions.filter(
       (a) => !a.challenged,
     ).length;
-    const assumptionPressure = InterventionScorer.clamp(
+    const assumptionPressure = clamp(
       unresolvedAssumptions / 5,
       0,
       1,
@@ -231,7 +235,7 @@ export class InterventionScorer {
     const pendingDecisions = context.decisions.filter(
       (d) => d.status === "proposed",
     ).length;
-    const decisionPressure = InterventionScorer.clamp(
+    const decisionPressure = clamp(
       pendingDecisions / 3,
       0,
       1,
@@ -249,8 +253,10 @@ export class InterventionScorer {
    * Full scoring pipeline — produces a ScoringResult for a proposal.
    *
    * This is the main entry point for scoring a proposal against context
-   * and history. It computes all individual scores and makes the final
-   * shouldInterrupt decision.
+   * and history. It computes all individual scores and the composite.
+   *
+   * The interrupt decision is made by the Kernel/Arbitrator layer,
+   * which has access to cooldown state, speaker flow, and attention budget.
    */
   scoreProposal(
     proposal: IAgentProposal,
@@ -270,11 +276,7 @@ export class InterventionScorer {
     // ("is the agent sure enough?"), then novelty ("is this new?").
     const score = urgency * 0.45 + confidence * 0.3 + novelty * 0.25;
 
-    const shouldInterrupt =
-      score >= RUNTIME_CONSTANTS.GLOBAL_URGENCY_MIN &&
-      novelty >= RUNTIME_CONSTANTS.DEDUPLICATION_SIMILARITY;
-
-    return { confidence, urgency, novelty, score, shouldInterrupt };
+    return { confidence, urgency, novelty, score };
   }
 
   // =========================================================================
@@ -331,9 +333,13 @@ export class InterventionScorer {
     return hits / keywords.length;
   }
 
-  /** Clamp a number to [min, max]. */
+  /**
+   * Clamp a number to [min, max].
+   * Delegates to the shared utility — kept as a static method for backward
+   * compatibility with existing test call sites (InterventionScorer.clamp).
+   */
   static clamp(value: number, min: number, max: number): number {
-    return Math.min(max, Math.max(min, value));
+    return clamp(value, min, max);
   }
 
   // =========================================================================
@@ -348,10 +354,10 @@ export class InterventionScorer {
   private static riskPressure(context: IContextSnapshot): number {
     if (context.risks.length === 0) return 0;
     const totalSeverity = context.risks.reduce(
-      (sum, r) => sum + InterventionScorer.clamp(r.severity, 0, 1),
+      (sum, r) => sum + clamp(r.severity, 0, 1),
       0,
     );
     // Average severity, normalized. 3+ high-severity risks → max pressure.
-    return InterventionScorer.clamp(totalSeverity / 3, 0, 1);
+    return clamp(totalSeverity / 3, 0, 1);
   }
 }

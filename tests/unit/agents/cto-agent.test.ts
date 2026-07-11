@@ -1,11 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { CTOAgent } from "../../../src/agents/cto-agent";
+import { CTOAgent } from "@agents/cto-agent";
 import {
   createMockLlm,
   emptySnapshot,
-  emptyDelta,
   emptyBlackboard,
-  snapshotWithTopics,
   deltaWithContent,
   blackboardWithEntries,
   validProposalResponse,

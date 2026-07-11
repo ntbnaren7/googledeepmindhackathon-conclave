@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FinanceAgent } from "../../../src/agents/finance-agent";
+import { FinanceAgent } from "@agents/finance-agent";
 import {
   createMockLlm,
   emptySnapshot,

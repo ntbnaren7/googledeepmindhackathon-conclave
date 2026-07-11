@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { BaseAgent } from "../../../src/agents/base-agent";
+import { BaseAgent } from "@agents/base-agent";
 import {
   IBlackboardState,
   IContextSnapshot,
   IAgentProposal,
   ISemanticDelta,
-} from "../../../src/shared/types";
+} from "@shared/types";
 
 // ---------------------------------------------------------------------------
 // Test agent — minimal concrete implementation
@@ -306,9 +306,12 @@ describe("BaseAgent", () => {
 
     it("returns safe fallback on LLM error", async () => {
       const agent = new TestAgent([]);
-      agent["llmClient"] = {
-        generate: async () => { throw new Error("fail"); },
-      };
+      // Override the private readonly llmClient via defineProperty
+      Object.defineProperty(agent, "llmClient", {
+        value: { generate: async () => { throw new Error("fail"); } },
+        writable: false,
+        configurable: true,
+      });
 
       const response = await agent.generateResponse(snapshot, {
         agentId: "test",

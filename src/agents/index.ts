@@ -6,3 +6,4 @@ export * from './product-agent';
 export * from './finance-agent';
 export * from './research-agent';
 export * from './intervention-scorer';
+export * from './gemini-llm-client';

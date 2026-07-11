@@ -1,21 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { AgentRegistry } from "../../../src/agents/agent-registry";
-import { IStakeholderAgent } from "../../../src/agents/interfaces";
+import { AgentRegistry } from "@agents/agent-registry";
+import { IStakeholderAgent } from "@agents/interfaces";
 import {
-  IContextSnapshot,
-  ISemanticDelta,
-  IBlackboardState,
   IAgentResult,
-  IAgentProposal,
   IAgentResponse,
-} from "../../../src/shared/types";
+} from "@shared/types";
 
 // ---------------------------------------------------------------------------
 // Mock agent
 // ---------------------------------------------------------------------------
 
 function mockAgent(id: string, role: string): IStakeholderAgent {
-  let resetCount = 0;
+  let _resetCount = 0;
   return {
     id,
     role,
@@ -27,7 +23,8 @@ function mockAgent(id: string, role: string): IStakeholderAgent {
       return { content: "", tone: "neutral" };
     },
     reset() {
-      resetCount++;
+      _resetCount++;
+      void _resetCount;
     },
   };
 }

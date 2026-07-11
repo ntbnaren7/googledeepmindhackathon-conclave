@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ResearchAgent } from "../../../src/agents/research-agent";
+import { ResearchAgent } from "@agents/research-agent";
 import {
   createMockLlm,
   emptySnapshot,

@@ -9,6 +9,7 @@ import {
 } from "@shared/types";
 import { logger } from "@shared/logger";
 import { RUNTIME_CONSTANTS } from "@shared/constants";
+import { extractJson } from "@shared/utils";
 import { InterventionScorer } from "./intervention-scorer";
 import { IStakeholderAgent, ILlmClient } from "./interfaces";
 
@@ -261,7 +262,7 @@ export abstract class BaseAgent implements IStakeholderAgent {
    * and coerces the fields into the correct shape.
    */
   protected parseEvaluationOutput(raw: string): ParsedEvaluation {
-    const json = this.extractJson(raw);
+    const json = extractJson(raw);
     if (!json) {
       return { proposal: null, blackboardEntries: [] };
     }
@@ -289,7 +290,7 @@ export abstract class BaseAgent implements IStakeholderAgent {
    * Default implementation extracts JSON and coerces the tone field.
    */
   protected parseResponseOutput(raw: string): IAgentResponse {
-    const json = this.extractJson(raw);
+    const json = extractJson(raw);
     if (!json) {
       return { content: raw || "", tone: "neutral" };
     }
@@ -326,43 +327,6 @@ export abstract class BaseAgent implements IStakeholderAgent {
     }
 
     return parsed;
-  }
-
-  /**
-   * Extracts a JSON object from LLM output that may be wrapped in
-   * markdown code fences, surrounded by prose, or malformed.
-   */
-  private extractJson(raw: string): Record<string, unknown> | null {
-    if (!raw) return null;
-
-    // Attempt 1 — the entire output is valid JSON
-    try {
-      return JSON.parse(raw) as Record<string, unknown>;
-    } catch {
-      // continue to next attempt
-    }
-
-    // Attempt 2 — JSON inside a markdown code fence (```json ... ```)
-    const fenceMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (fenceMatch) {
-      try {
-        return JSON.parse(fenceMatch[1]) as Record<string, unknown>;
-      } catch {
-        // continue to next attempt
-      }
-    }
-
-    // Attempt 3 — find the outermost { ... } brace pair
-    const braceMatch = raw.match(/\{[\s\S]*\}/);
-    if (braceMatch) {
-      try {
-        return JSON.parse(braceMatch[0]) as Record<string, unknown>;
-      } catch {
-        // no valid JSON found
-      }
-    }
-
-    return null;
   }
 
   /** Type guard — validates that a value has the shape of IAgentProposal. */

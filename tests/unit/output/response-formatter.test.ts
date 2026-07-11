@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { ResponseFormatter } from "../../../src/output/response-formatter";
-import { IAgentProposal } from "../../../src/shared/types";
+import { ResponseFormatter } from "@output/response-formatter";
+import { IAgentProposal } from "@shared/types";
 
 // ---------------------------------------------------------------------------
 // Fixtures

@@ -4,35 +4,31 @@ import {
   IBlackboardState,
   IAgentProposal,
   IAgentResponse,
-} from "../../src/shared/types";
-import { ILlmClient } from "../../src/agents/interfaces";
+} from "@shared/types";
+import { ILlmClient } from "@agents/interfaces";
 
 // ---------------------------------------------------------------------------
 // Mock LLM Client
 // ---------------------------------------------------------------------------
 
-export interface MockLlmClient extends ILlmClient {
+export class MockLlmClient implements ILlmClient {
   responses: string[];
-  prompts: string[];
-  callCount: number;
+  prompts: string[] = [];
+  callCount = 0;
+
+  constructor(responses: string[] = []) {
+    this.responses = [...responses];
+  }
+
+  async generate(prompt: string): Promise<string> {
+    this.prompts.push(prompt);
+    this.callCount++;
+    return this.responses.shift() ?? "";
+  }
 }
 
 export function createMockLlm(responses: string[] = []): MockLlmClient {
-  const state = {
-    responses: [...responses],
-    prompts: [] as string[],
-    callCount: 0,
-  };
-
-  return {
-    get prompts() { return state.prompts; },
-    get callCount() { return state.callCount; },
-    async generate(prompt: string): Promise<string> {
-      state.prompts.push(prompt);
-      state.callCount++;
-      return state.responses.shift() ?? "";
-    },
-  };
+  return new MockLlmClient(responses);
 }
 
 // ---------------------------------------------------------------------------

@@ -1,5 +1,6 @@
 import { IAgentProposal, IAgentResponse } from "@shared/types";
 import { logger } from "@shared/logger";
+import { clamp } from "@shared/utils";
 import {
   BaseAgent,
   EvaluationPromptContext,
@@ -180,12 +181,4 @@ export class FinanceAgent extends BaseAgent {
 
     return base;
   }
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
 }

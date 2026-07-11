@@ -5,13 +5,13 @@ export function loadConfig() {
   return {
     gemini: {
       apiKey: process.env.GEMINI_API_KEY || '',
-      model: process.env.GEMINI_MODEL || 'gemini-1.5-pro',
-      searchModel: process.env.GEMINI_SEARCH_MODEL || 'gemini-1.5-pro',
+      model: process.env.GEMINI_MODEL || 'gemini-3.5-flash',
+      searchModel: process.env.GEMINI_SEARCH_MODEL || 'gemini-3.5-flash',
     },
     perception: {
       session: { 
         apiKey: process.env.GEMINI_API_KEY || '', 
-        model: process.env.GEMINI_LIVE_MODEL || 'gemini-1.5-pro', 
+        model: process.env.GEMINI_LIVE_MODEL || 'gemini-live-2.5-flash-preview', 
         sampleRate: parseInt(process.env.AUDIO_SAMPLE_RATE || '16000', 10) 
       },
       compressionBatchSize: parseInt(process.env.COMPRESSION_BATCH_SIZE || '3', 10),

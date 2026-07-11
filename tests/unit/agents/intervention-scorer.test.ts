@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { InterventionScorer } from "../../../src/agents/intervention-scorer";
+import { InterventionScorer } from "@agents/intervention-scorer";
 import {
   IAgentProposal,
   IContextSnapshot,
-} from "../../../src/shared/types";
+} from "@shared/types";
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -264,7 +264,7 @@ describe("InterventionScorer", () => {
         history,
       );
       expect(result.novelty).toBe(0);
-      expect(result.shouldInterrupt).toBe(false);
+      expect(result.score).toBeLessThan(0.3);
     });
 
     it("allows novel high-urgency proposals", () => {
@@ -274,7 +274,7 @@ describe("InterventionScorer", () => {
         [],
       );
       expect(result.novelty).toBe(1);
-      expect(result.shouldInterrupt).toBe(true);
+      expect(result.score).toBeGreaterThan(0.3);
     });
   });
 });
