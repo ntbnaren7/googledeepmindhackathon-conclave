@@ -149,6 +149,50 @@ describe('ContextEngine', () => {
     ).toHaveLength(1);
   });
 
+  it('links objection and agreement units to the matching decision', () => {
+    const knowledgeGraph = new KnowledgeGraph();
+    const engine = new ContextEngine(new EventBus(), knowledgeGraph);
+
+    engine.handleDelta({
+      units: [
+        {
+          id: 'unit-obj',
+          speakerId: 'speaker-1',
+          content: 'Managed Postgres will lock us into one cloud vendor',
+          timestamp: 1000,
+          type: 'objection',
+        },
+        {
+          id: 'unit-agr',
+          speakerId: 'speaker-2',
+          content: 'Managed Postgres reduces our operational burden',
+          timestamp: 1001,
+          type: 'agreement',
+        },
+      ],
+      topics: [],
+      decisions: [
+        {
+          id: 'decision-1',
+          description: 'Adopt managed Postgres for our database',
+          status: 'proposed',
+          timestamp: 999,
+        },
+      ],
+      assumptions: [],
+      risks: [],
+    });
+
+    const decision = engine.getSnapshot().decisions[0];
+    expect(decision.opposing).toHaveLength(1);
+    expect(decision.opposing[0].sourceUnitId).toBe('unit-obj');
+    expect(decision.supporting).toHaveLength(1);
+    expect(decision.supporting[0].stance).toBe('support');
+    // Change D: units are stored in the knowledge graph with their real type.
+    expect(knowledgeGraph.getByType('objection')).toHaveLength(1);
+    expect(knowledgeGraph.getByType('agreement')).toHaveLength(1);
+  });
+
   it('ignores empty deltas without publishing context updates', () => {
     const eventBus = new EventBus();
     const knowledgeGraph = new KnowledgeGraph();
@@ -166,6 +210,36 @@ describe('ContextEngine', () => {
     expect(
       eventBus.getHistory().filter((event) => event.type === EventType.CONTEXT_UPDATED),
     ).toHaveLength(0);
+  });
+
+  it('exports a meeting record from live context state, not lossy KG defaults', () => {
+    const engine = new ContextEngine();
+    engine.handleDelta(buildDelta());
+
+    const record = engine.exportMeetingRecord();
+
+    expect(record.topics.map((t) => t.title)).toContain('Database architecture');
+    expect(record.decisions).toHaveLength(1);
+    expect(record.decisions[0].status).toBe('decided'); // real status, not 'proposed'
+    expect(record.risks[0].severity).toBe('high'); // real severity, not 'med'
+    expect(typeof record.generatedAt).toBe('number');
+  });
+
+  it('returns a decision graph that cannot mutate engine state', () => {
+    const engine = new ContextEngine();
+    engine.handleDelta(buildDelta());
+
+    const graph = engine.getDecisionGraph();
+    graph[0].status = 'rejected';
+    graph[0].opposing.push({
+      id: 'x',
+      content: 'tampering',
+      stance: 'oppose',
+      sourceUnitId: 'x',
+    });
+
+    expect(engine.getDecisionGraph()[0].status).toBe('decided');
+    expect(engine.getDecisionGraph()[0].opposing).toHaveLength(0);
   });
 
   it('resets the working context state', () => {

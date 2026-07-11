@@ -1,4 +1,5 @@
 import { ContextState, DecisionNode, IDecision } from '../shared/types';
+import { bestMatchIndex } from './matcher';
 
 export class DecisionTracker {
   track(state: ContextState, decisions: readonly IDecision[]): boolean {
@@ -12,14 +13,20 @@ export class DecisionTracker {
   }
 }
 
+function findDecisionIndex(state: ContextState, decision: IDecision): number {
+  const byId = state.decisions.findIndex((candidate) => candidate.id === decision.id);
+  if (byId >= 0) return byId;
+  // Fall back to content similarity so a re-worded decision with a fresh id
+  // updates the existing node instead of accumulating a duplicate.
+  return bestMatchIndex(decision.description, state.decisions, (d) => d.statement);
+}
+
 function upsertDecision(state: ContextState, decision: IDecision): boolean {
-  const existingIndex = state.decisions.findIndex(
-    (candidate) => candidate.id === decision.id,
-  );
+  const existingIndex = findDecisionIndex(state, decision);
   const existing = existingIndex >= 0 ? state.decisions[existingIndex] : null;
   const nextDecision: DecisionNode = {
-    id: decision.id,
-    statement: decision.description,
+    id: existing?.id ?? decision.id,
+    statement: existing?.statement ?? decision.description,
     status: mapDecisionStatus(decision.status),
     supporting: existing?.supporting ?? [],
     opposing: existing?.opposing ?? [],

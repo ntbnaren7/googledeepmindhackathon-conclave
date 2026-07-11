@@ -1,4 +1,5 @@
 import { ContextState, IRisk, Risk } from '../shared/types';
+import { bestMatchIndex } from './matcher';
 
 export class RiskTracker {
   track(state: ContextState, risks: readonly IRisk[], timestamp: number): boolean {
@@ -12,12 +13,18 @@ export class RiskTracker {
   }
 }
 
+function findRiskIndex(state: ContextState, risk: IRisk): number {
+  const byId = state.risks.findIndex((candidate) => candidate.id === risk.id);
+  if (byId >= 0) return byId;
+  return bestMatchIndex(risk.description, state.risks, (r) => r.content);
+}
+
 function upsertRisk(state: ContextState, risk: IRisk, timestamp: number): boolean {
-  const existingIndex = state.risks.findIndex((candidate) => candidate.id === risk.id);
+  const existingIndex = findRiskIndex(state, risk);
   const existing = existingIndex >= 0 ? state.risks[existingIndex] : null;
   const nextRisk: Risk = {
-    id: risk.id,
-    content: risk.description,
+    id: existing?.id ?? risk.id,
+    content: existing?.content ?? risk.description,
     severity: mapRiskSeverity(risk.severity),
     status: existing?.status ?? 'open',
     timestamp: existing?.timestamp ?? timestamp,

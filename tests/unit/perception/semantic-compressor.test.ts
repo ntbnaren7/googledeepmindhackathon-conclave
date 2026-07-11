@@ -155,6 +155,54 @@ describe('SemanticCompressor', () => {
     });
   });
 
+  it('passes through a valid unit type and drops an invalid one', async () => {
+    const client: SemanticCompressionClient = {
+      generate: vi.fn(async () =>
+        JSON.stringify({
+          units: [
+            {
+              id: 'segment-1',
+              speakerId: 'speaker-1',
+              content: 'Kubernetes is too complex to operate',
+              timestamp: 1000,
+              type: 'objection',
+            },
+            {
+              id: 'segment-2',
+              speakerId: 'speaker-1',
+              content: 'No strong opinion',
+              timestamp: 1100,
+              type: 'not-a-real-type',
+            },
+          ],
+          topics: [],
+          decisions: [],
+          assumptions: [],
+          risks: [],
+        }),
+      ),
+    };
+    const compressor = new SemanticCompressor({ client });
+
+    const delta = await compressor.compress([buildSegment()]);
+
+    expect(delta.units).toEqual([
+      {
+        id: 'segment-1',
+        speakerId: 'speaker-1',
+        content: 'Kubernetes is too complex to operate',
+        timestamp: 1000,
+        type: 'objection',
+      },
+      {
+        id: 'segment-2',
+        speakerId: 'speaker-1',
+        content: 'No strong opinion',
+        timestamp: 1100,
+      },
+    ]);
+  });
+
   it('returns an empty delta for malformed JSON', async () => {
     const compressor = new SemanticCompressor({
       client: { generate: vi.fn(async () => 'not-json') },

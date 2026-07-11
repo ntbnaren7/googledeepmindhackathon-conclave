@@ -8,6 +8,7 @@ import type {
   ISemanticUnit,
   ITopic,
   SemanticDelta,
+  SemanticUnitType,
 } from '@shared/types';
 import { logger } from '@shared/logger';
 
@@ -52,8 +53,9 @@ export class SemanticCompressor implements ISemanticCompressor {
     return [
       'Compress these transcript segments into a Conclave SemanticDelta.',
       'Return only valid JSON with this exact shape:',
-      '{"units":[{"id":"string","speakerId":"string","content":"string","timestamp":0}],"topics":[{"id":"string","label":"string","confidence":0}],"decisions":[{"id":"string","description":"string","status":"proposed|approved|rejected","timestamp":0}],"assumptions":[{"id":"string","statement":"string","challenged":false}],"risks":[{"id":"string","description":"string","severity":0}]}',
+      '{"units":[{"id":"string","speakerId":"string","content":"string","timestamp":0,"type":"proposal|decision|assumption|risk|question|objection|clarification|statement|agreement"}],"topics":[{"id":"string","label":"string","confidence":0}],"decisions":[{"id":"string","description":"string","status":"proposed|approved|rejected","timestamp":0}],"assumptions":[{"id":"string","statement":"string","challenged":false}],"risks":[{"id":"string","description":"string","severity":0}]}',
       'Use the provided segment id for each unit id and segment startMs for unit timestamp.',
+      'For each unit set "type" to its semantic role; use "objection" when it argues against a decision and "agreement" when it argues for one.',
       'Keep risk severity between 0 and 1.',
       JSON.stringify({
         segments: segments.map((segment) => ({
@@ -133,6 +135,24 @@ function readArray(source: unknown, key: string): unknown[] {
   return Array.isArray(value) ? value : [];
 }
 
+const SEMANTIC_UNIT_TYPES = new Set<SemanticUnitType>([
+  'proposal',
+  'decision',
+  'assumption',
+  'risk',
+  'question',
+  'objection',
+  'clarification',
+  'statement',
+  'agreement',
+]);
+
+function readSemanticUnitType(value: unknown): SemanticUnitType | null {
+  return typeof value === 'string' && SEMANTIC_UNIT_TYPES.has(value as SemanticUnitType)
+    ? (value as SemanticUnitType)
+    : null;
+}
+
 function normalizeUnit(value: unknown): ISemanticUnit[] {
   if (!isRecord(value)) return [];
 
@@ -143,7 +163,11 @@ function normalizeUnit(value: unknown): ISemanticUnit[] {
 
   if (!id || !speakerId || !content || timestamp === null) return [];
 
-  return [{ id, speakerId, content, timestamp }];
+  const unit: ISemanticUnit = { id, speakerId, content, timestamp };
+  const type = readSemanticUnitType(value.type);
+  if (type) unit.type = type;
+
+  return [unit];
 }
 
 function normalizeTopic(value: unknown): ITopic[] {
