@@ -13,6 +13,13 @@ export interface ISemanticUnit {
   speakerId: string;
   content: string;
   timestamp: number;
+  /**
+   * Optional semantic role of the utterance. When the compressor tags a unit
+   * as `objection` / `agreement`, the Context Engine links it as an
+   * opposing / supporting argument on the best-matching decision. Absent units
+   * are treated as plain `statement`s.
+   */
+  type?: SemanticUnitType;
 }
 
 export interface ITopic {
