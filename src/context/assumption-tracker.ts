@@ -1,11 +1,8 @@
 import { Assumption, ContextState, IAssumption } from '../shared/types';
+import { bestMatchIndex } from './matcher';
 
 export class AssumptionTracker {
-  track(
-    state: ContextState,
-    assumptions: readonly IAssumption[],
-    timestamp: number,
-  ): boolean {
+  track(state: ContextState, assumptions: readonly IAssumption[], timestamp: number): boolean {
     let changed = false;
 
     for (const assumption of assumptions) {
@@ -21,14 +18,12 @@ function upsertAssumption(
   assumption: IAssumption,
   timestamp: number,
 ): boolean {
-  const existingIndex = state.assumptions.findIndex(
-    (candidate) => candidate.id === assumption.id,
-  );
+  const existingIndex = findAssumptionIndex(state, assumption);
   const existing = existingIndex >= 0 ? state.assumptions[existingIndex] : null;
   const nextAssumption: Assumption = {
-    id: assumption.id,
-    content: assumption.statement,
-    status: assumption.challenged ? 'challenged' : existing?.status ?? 'active',
+    id: existing?.id ?? assumption.id,
+    content: existing?.content ?? assumption.statement,
+    status: assumption.challenged ? 'challenged' : (existing?.status ?? 'active'),
     sourceUnitId: existing?.sourceUnitId ?? assumption.id,
     timestamp: existing?.timestamp ?? timestamp,
   };
@@ -41,6 +36,12 @@ function upsertAssumption(
   if (assumptionsEqual(existing, nextAssumption)) return false;
   state.assumptions[existingIndex] = nextAssumption;
   return true;
+}
+
+function findAssumptionIndex(state: ContextState, assumption: IAssumption): number {
+  const byId = state.assumptions.findIndex((candidate) => candidate.id === assumption.id);
+  if (byId >= 0) return byId;
+  return bestMatchIndex(assumption.statement, state.assumptions, (a) => a.content);
 }
 
 function assumptionsEqual(left: Assumption, right: Assumption): boolean {

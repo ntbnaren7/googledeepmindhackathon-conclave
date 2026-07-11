@@ -1,6 +1,15 @@
 import { IEventBus } from '../events/interfaces';
 import { EventType } from '../events/event-types';
-import { ContextSnapshot, DecisionNode, SemanticDelta } from '../shared/types';
+import {
+  Argument,
+  ContextSnapshot,
+  ContextState,
+  DecisionNode,
+  ISemanticUnit,
+  MeetingRecord,
+  SemanticDelta,
+} from '../shared/types';
+import { generateId } from '../shared/id-generator';
 import { IKnowledgeGraph } from '../knowledge/interfaces';
 import { KnowledgeGraph } from '../knowledge/knowledge-graph';
 import { AssumptionTracker } from './assumption-tracker';
@@ -8,6 +17,7 @@ import { ContextProjector } from './context-projector';
 import { ContextStore } from './context-store';
 import { DecisionTracker } from './decision-tracker';
 import { IContextEngine } from './interfaces';
+import { bestMatchIndex } from './matcher';
 import { RiskTracker } from './risk-tracker';
 import { TopicTracker } from './topic-tracker';
 
@@ -41,15 +51,14 @@ export class ContextEngine implements IContextEngine {
     this.store.update((state) => {
       const topicChanged = this.topicTracker.track(state, delta.topics, timestamp);
       const decisionChanged = this.decisionTracker.track(state, delta.decisions);
-      const assumptionChanged = this.assumptionTracker.track(
-        state,
-        delta.assumptions,
-        timestamp,
-      );
+      const assumptionChanged = this.assumptionTracker.track(state, delta.assumptions, timestamp);
       const riskChanged = this.riskTracker.track(state, delta.risks, timestamp);
+      // Link objection/agreement units to the decision they argue about. Runs
+      // after decisionTracker so decisions from this same delta are matchable.
+      const argumentChanged = linkArgumentUnits(state, delta.units);
 
       contextChanged =
-        topicChanged || decisionChanged || assumptionChanged || riskChanged;
+        topicChanged || decisionChanged || assumptionChanged || riskChanged || argumentChanged;
     });
 
     const knowledgeChanged = this.storeKnowledgeEntries(delta, timestamp);
@@ -68,7 +77,29 @@ export class ContextEngine implements IContextEngine {
   }
 
   getDecisionGraph(): DecisionNode[] {
-    return this.store.getState().decisions;
+    // Clone so callers cannot mutate the engine's internal decision state.
+    return structuredClone(this.store.getState().decisions);
+  }
+
+  /**
+   * Authoritative Meeting Record built from the live context state (real
+   * statuses, severities and topics), not from the flat knowledge log. The
+   * knowledge graph remains the raw append-only history; this is the "truth".
+   */
+  exportMeetingRecord(): MeetingRecord {
+    const state = this.store.getState();
+    const topics = state.currentTopic
+      ? [...state.topicHistory, state.currentTopic]
+      : [...state.topicHistory];
+
+    return structuredClone({
+      topics,
+      decisions: state.decisions,
+      assumptions: state.assumptions,
+      risks: state.risks,
+      interventions: state.interventions,
+      generatedAt: Date.now(),
+    });
   }
 
   reset(): void {
@@ -81,7 +112,7 @@ export class ContextEngine implements IContextEngine {
     for (const unit of delta.units) {
       this.knowledgeGraph.store({
         id: unit.id,
-        type: 'statement',
+        type: unit.type ?? 'statement',
         content: unit.content,
         domain: null,
         speakerId: unit.speakerId,
@@ -127,6 +158,34 @@ export class ContextEngine implements IContextEngine {
   }
 }
 
+function linkArgumentUnits(state: ContextState, units: readonly ISemanticUnit[]): boolean {
+  let changed = false;
+
+  for (const unit of units) {
+    if (unit.type !== 'objection' && unit.type !== 'agreement') continue;
+
+    const index = bestMatchIndex(unit.content, state.decisions, (d) => d.statement);
+    if (index < 0) continue;
+
+    const decision = state.decisions[index];
+    const stance: Argument['stance'] = unit.type === 'objection' ? 'oppose' : 'support';
+    const target = stance === 'oppose' ? decision.opposing : decision.supporting;
+    // Idempotent: the same unit must not attach twice on re-processing.
+    if (target.some((argument) => argument.sourceUnitId === unit.id)) continue;
+
+    target.push({
+      id: generateId(),
+      content: unit.content,
+      stance,
+      speakerId: unit.speakerId,
+      sourceUnitId: unit.id,
+    });
+    changed = true;
+  }
+
+  return changed;
+}
+
 function isEmptyDelta(delta: SemanticDelta): boolean {
   return (
     delta.units.length === 0 &&
@@ -138,8 +197,7 @@ function isEmptyDelta(delta: SemanticDelta): boolean {
 }
 
 function resolveDeltaTimestamp(delta: SemanticDelta): number {
-  const unitTimestamp = delta.units.find((unit) => Number.isFinite(unit.timestamp))
-    ?.timestamp;
+  const unitTimestamp = delta.units.find((unit) => Number.isFinite(unit.timestamp))?.timestamp;
   const decisionTimestamp = delta.decisions.find((decision) =>
     Number.isFinite(decision.timestamp),
   )?.timestamp;

@@ -7,6 +7,7 @@ import { MockCompressor } from '../../../src/perception/mock-compressor';
 import { TranscriptProcessor } from '../../../src/perception/transcript-processor';
 import { DiarizationTracker } from '../../../src/perception/diarization-tracker';
 import { PauseDetector } from '../../../src/perception/pause-detector';
+import type { ISemanticCompressor } from '../../../src/perception/interfaces';
 import type { AnyTypedEvent } from '../../../src/events/event-schema';
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -55,6 +56,53 @@ describe('PerceptionEngine (mock pipeline)', () => {
 
     const payload = deltas[0].payload as { delta: { units: unknown[] } };
     expect(payload.delta.units.length).toBe(2);
+  });
+
+  it('publishes a delta that has no units but carries decisions (seam gate F)', async () => {
+    const collected: AnyTypedEvent[] = [];
+    const eventBus = new EventBus();
+    eventBus.subscribeAll((e) => collected.push(e));
+
+    const decisionsOnlyCompressor: ISemanticCompressor = {
+      async compress() {
+        return {
+          units: [],
+          topics: [],
+          decisions: [
+            { id: 'd1', description: 'Adopt managed Postgres', status: 'proposed', timestamp: 1 },
+          ],
+          assumptions: [],
+          risks: [],
+        };
+      },
+    };
+
+    const engine = new PerceptionEngine({
+      eventBus,
+      connector: new MockGeminiConnector({
+        script: [{ speakerTag: 'A', text: 'Adopt managed Postgres.', delayMs: 5 }],
+      }),
+      transcriptProcessor: new TranscriptProcessor(),
+      diarization: new DiarizationTracker(),
+      pauseDetector: new PauseDetector(),
+      compressor: decisionsOnlyCompressor,
+    });
+
+    await engine.start({
+      meetingId: 'test',
+      sampleRate: 16000,
+      compressionBatchSize: 1,
+      compressionIntervalMs: 10_000,
+      useMock: true,
+    });
+    await wait(80);
+    await engine.stop();
+
+    const deltas = collected.filter((e) => e.type === EventType.DELTA_PRODUCED);
+    expect(deltas.length).toBeGreaterThanOrEqual(1);
+    const payload = deltas[0].payload as { delta: { units: unknown[]; decisions: unknown[] } };
+    expect(payload.delta.units.length).toBe(0);
+    expect(payload.delta.decisions.length).toBe(1);
   });
 
   it('emits TRANSCRIPT_UPDATE and SPEAKER_STARTED signals', async () => {
