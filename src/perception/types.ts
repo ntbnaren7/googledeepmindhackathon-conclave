@@ -8,12 +8,10 @@
  * `SemanticDelta`) remain in `@shared/types` since the kernel depends on them.
  */
 
-/** A participant in the discussion. */
-export interface Speaker {
-  id: string;
-  label: string;
-  isHuman: boolean;
-}
+// Speaker is a cross-layer type now owned by @shared/types; import it for local
+// use and re-export so perception consumers have a single source of truth.
+import type { Speaker } from '@shared/types';
+export type { Speaker };
 
 /** A chunk of raw PCM audio captured from the microphone. */
 export interface AudioChunk {
