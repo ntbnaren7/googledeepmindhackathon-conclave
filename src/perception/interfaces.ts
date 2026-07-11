@@ -1,11 +1,11 @@
+import type { SemanticDelta } from '@shared/types';
 import type {
   AudioChunk,
   RawTranscript,
   TranscriptSegment,
   PauseEvent,
-  SemanticDelta,
   Speaker,
-} from '@shared/types';
+} from './types';
 
 /** Session parameters for a perception run. */
 export interface PerceptionSessionConfig {
