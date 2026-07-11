@@ -103,6 +103,42 @@ describe('DecisionTracker', () => {
   });
 });
 
+describe('DecisionTracker dedup', () => {
+  it('collapses a re-worded decision with a fresh id into the existing node', () => {
+    const state = createEmptyContextState();
+    const tracker = new DecisionTracker();
+
+    tracker.track(state, [
+      {
+        id: 'decision-1',
+        description: 'Adopt managed Postgres for the primary database',
+        status: 'proposed',
+        timestamp: 1000,
+      },
+    ]);
+    state.decisions[0].supporting.push({
+      id: 'argument-1',
+      content: 'Lower operational overhead',
+      stance: 'support',
+      sourceUnitId: 'unit-1',
+    });
+
+    tracker.track(state, [
+      {
+        id: 'decision-2',
+        description: 'Adopt managed Postgres primary database platform',
+        status: 'approved',
+        timestamp: 1200,
+      },
+    ]);
+
+    expect(state.decisions).toHaveLength(1);
+    expect(state.decisions[0].id).toBe('decision-1');
+    expect(state.decisions[0].status).toBe('decided');
+    expect(state.decisions[0].supporting).toHaveLength(1);
+  });
+});
+
 describe('AssumptionTracker', () => {
   it('maps challenge state and preserves the original timestamp', () => {
     const state = createEmptyContextState();
