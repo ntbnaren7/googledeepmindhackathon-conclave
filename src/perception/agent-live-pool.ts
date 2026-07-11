@@ -57,7 +57,7 @@ const MIN_URGENCY_TO_SPEAK = 0.3;
  * Minimum urgency required to interrupt the user mid-sentence.
  * Must be HIGH or CRITICAL — we only cut someone off for serious reasons.
  */
-const MIN_URGENCY_TO_INTERRUPT_USER = 0.75;
+const MIN_URGENCY_TO_INTERRUPT_USER = 0.50;
 
 /**
  * How long (ms) all agents stay muted after one speaks.

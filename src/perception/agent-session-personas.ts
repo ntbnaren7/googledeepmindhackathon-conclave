@@ -28,7 +28,7 @@ export const URGENCY_TAG_REGEX = /\[(LOW|MED|HIGH|CRITICAL)\]/i;
 export function parseUrgencyTag(text: string): { text: string; urgency: number } {
   const match = text.match(URGENCY_TAG_REGEX);
   const clean = text.replace(/\[(LOW|MED|HIGH|CRITICAL)\]/gi, '').trim();
-  if (!match) return { text: clean, urgency: 0.55 }; // default MED when interrupting
+  if (!match) return { text: clean, urgency: 0.75 }; // default HIGH when breaking silence to interject
 
   const level = match[1].toUpperCase();
   const urgencyMap: Record<string, number> = {
@@ -37,7 +37,7 @@ export function parseUrgencyTag(text: string): { text: string; urgency: number }
     HIGH:     0.8,
     CRITICAL: 0.95,
   };
-  return { text: clean, urgency: urgencyMap[level] ?? 0.55 };
+  return { text: clean, urgency: urgencyMap[level] ?? 0.75 };
 }
 
 // ---------------------------------------------------------------------------
