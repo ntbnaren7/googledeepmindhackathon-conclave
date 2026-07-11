@@ -187,3 +187,9 @@ export interface ISpeechToken {
 }
 
 export type SemanticDelta = ISemanticDelta;
+
+export interface ArbitrationResult {
+  granted: IAgentProposal | null;
+  rejected: readonly IAgentProposal[];
+  deferred: readonly IAgentProposal[];
+}
