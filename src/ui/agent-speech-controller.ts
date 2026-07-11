@@ -18,6 +18,12 @@ const VOICE_PROFILES: Record<AgentId, { pitch: number; rate: number }> = {
  *   - `agent-speak`  → start reading the agent's text aloud
  *   - `transcript`   → a human is speaking/typing → interrupt
  *
+ * Also monitors direct user input (keystrokes on the text box and mic button
+ * clicks) so interruptions are caught immediately — even before the backend
+ * round-trips the transcript message back. The backend processes deltas
+ * sequentially, so relying only on `transcript` messages would miss
+ * interruptions that happen while a cycle is in-flight.
+ *
  * Uses the Web Speech API (`window.speechSynthesis`). On browsers without it
  * the component mounts silently with no side-effects.
  */
@@ -48,6 +54,33 @@ export class AgentSpeechController implements UIComponent {
     this.overlay.querySelector('#speech-stop-btn')?.addEventListener('click', () => {
       this.interruptSpeech('manual');
     });
+
+    // ── Direct input monitoring ──────────────────────────────────────────
+    // These fire instantly in the browser, before the backend round-trip.
+
+    // Typing in the text input box
+    const textInput = document.getElementById('ib-text');
+    if (textInput) {
+      textInput.addEventListener('keydown', () => {
+        if (this.speaking) this.interruptSpeech('human');
+      });
+    }
+
+    // Clicking the Send button
+    const sendBtn = document.getElementById('ib-send');
+    if (sendBtn) {
+      sendBtn.addEventListener('click', () => {
+        if (this.speaking) this.interruptSpeech('human');
+      });
+    }
+
+    // Clicking the Mic button (user is about to speak)
+    const micBtn = document.getElementById('ib-mic');
+    if (micBtn) {
+      micBtn.addEventListener('click', () => {
+        if (this.speaking) this.interruptSpeech('human');
+      });
+    }
   }
 
   handle(msg: UIMessage): void {
@@ -55,6 +88,9 @@ export class AgentSpeechController implements UIComponent {
       this.startSpeaking(msg.agent, msg.text);
     } else if (msg.kind === 'transcript') {
       // A human is speaking/typing — interrupt the agent if it's talking.
+      // This is the fallback path (after backend round-trip). The direct
+      // input listeners above catch it faster, but this ensures we don't
+      // miss edge cases.
       if (this.speaking) {
         this.interruptSpeech('human');
       }
@@ -81,6 +117,7 @@ export class AgentSpeechController implements UIComponent {
     utterance.lang = 'en-US';
 
     // Try to pick a voice (prefer Google voices for quality, then any English).
+    // Voices may load asynchronously; if none yet, we proceed with the default.
     const voices = window.speechSynthesis.getVoices();
     const preferred = voices.find(
       (v) => v.lang.startsWith('en') && v.name.includes('Google'),
@@ -98,11 +135,16 @@ export class AgentSpeechController implements UIComponent {
     utterance.onerror = () => this.onSpeechFinished();
 
     window.speechSynthesis.speak(utterance);
+
+    // Chrome bug workaround: speechSynthesis can pause after ~15 seconds.
+    // Resume periodically to keep it alive.
+    this.startKeepAlive();
   }
 
   private interruptSpeech(reason: 'human' | 'manual' | 'reset'): void {
     if (!this.speaking) return;
 
+    this.stopKeepAlive();
     window.speechSynthesis?.cancel();
     const agent = this.currentAgent;
     this.speaking = false;
@@ -119,11 +161,32 @@ export class AgentSpeechController implements UIComponent {
 
   private onSpeechFinished(): void {
     if (!this.speaking) return; // already interrupted
+    this.stopKeepAlive();
     const agent = this.currentAgent;
     this.speaking = false;
     this.currentAgent = null;
     this.hideOverlay();
     if (agent) this.setAgentCardSpeaking(agent, false);
+  }
+
+  // ── Chrome keep-alive workaround ───────────────────────────────────────
+  private keepAliveTimer: ReturnType<typeof setInterval> | null = null;
+
+  private startKeepAlive(): void {
+    this.stopKeepAlive();
+    this.keepAliveTimer = setInterval(() => {
+      if (window.speechSynthesis?.speaking) {
+        window.speechSynthesis.pause();
+        window.speechSynthesis.resume();
+      }
+    }, 10_000);
+  }
+
+  private stopKeepAlive(): void {
+    if (this.keepAliveTimer !== null) {
+      clearInterval(this.keepAliveTimer);
+      this.keepAliveTimer = null;
+    }
   }
 
   // ── Visual helpers ─────────────────────────────────────────────────────
