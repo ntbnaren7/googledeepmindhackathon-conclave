@@ -343,6 +343,9 @@ export abstract class BaseAgent implements IStakeholderAgent {
   /**
    * Extracts a JSON object from LLM output that may be wrapped in
    * markdown code fences, surrounded by prose, or malformed.
+   *
+   * Handles gemini-3.5-flash's quirk of appending a stray trailing `}`
+   * after the valid JSON object (Attempt 4 — progressive trim).
    */
   private extractJson(raw: string): Record<string, unknown> | null {
     if (!raw) return null;
@@ -364,13 +367,26 @@ export abstract class BaseAgent implements IStakeholderAgent {
       }
     }
 
-    // Attempt 3 — find the outermost { ... } brace pair
+    // Attempt 3 — find the outermost { ... } brace pair (greedy)
     const braceMatch = raw.match(/\{[\s\S]*\}/);
     if (braceMatch) {
       try {
         return JSON.parse(braceMatch[0]) as Record<string, unknown>;
       } catch {
-        // no valid JSON found
+        // Attempt 4 — some models (e.g. gemini-3.5-flash) append a stray
+        // trailing `}` after the valid object, making greedy match fail.
+        // Progressively strip trailing `}` chars until we get valid JSON.
+        let candidate = braceMatch[0];
+        while (candidate.length > 1) {
+          const lastBrace = candidate.lastIndexOf('}');
+          if (lastBrace === -1) break;
+          candidate = candidate.slice(0, lastBrace);
+          try {
+            return JSON.parse(candidate + '}') as Record<string, unknown>;
+          } catch {
+            // keep trimming
+          }
+        }
       }
     }
 
