@@ -37,7 +37,7 @@ import { ITimeProvider, ISemanticComparator } from './kernel/interfaces';
 import { SpeechSynthesizer } from './output/speech-synthesizer';
 
 import { PerceptionEngine } from './perception/perception-engine';
-import { MockGeminiConnector } from './perception/mock-gemini-connector';
+import { ManualConnector } from './perception/manual-connector';
 import { MockCompressor } from './perception/mock-compressor';
 import { SemanticCompressor } from './perception/semantic-compressor';
 import { TranscriptProcessor } from './perception/transcript-processor';
@@ -47,14 +47,6 @@ import { PauseDetector } from './perception/pause-detector';
 import { UiWebSocketServer } from './ui/websocket-server';
 import { Orchestrator } from './integration/orchestrator';
 import type { AnyTypedEvent } from './events/event-schema';
-
-const DEMO_SCRIPT = [
-  { speakerTag: 'Priya', text: 'I think we should migrate our platform to Kubernetes this quarter.', delayMs: 900 },
-  { speakerTag: 'Arjun', text: 'Agreed. Traffic will probably stay under ten thousand users anyway.', delayMs: 1300 },
-  { speakerTag: 'Priya', text: 'Kubernetes gives us better scaling and safer rolling deploys.', delayMs: 1300 },
-  { speakerTag: 'Arjun', text: 'But operating Kubernetes adds real complexity and on-call burden.', delayMs: 1300 },
-  { speakerTag: 'Priya', text: 'What is the budget impact if the migration runs longer than planned?', delayMs: 1300 },
-];
 
 async function bootstrap() {
   const config = loadConfig();
@@ -119,22 +111,27 @@ async function bootstrap() {
     }
   });
 
-  // ── Perception (Dev D) ──
+  // ── Perception (Dev D) ── driven live by UI input via the ManualConnector.
+  const connector = new ManualConnector();
   const compressor = hasGemini ? new SemanticCompressor() : new MockCompressor();
   const perceptionEngine = new PerceptionEngine({
     eventBus,
-    connector: new MockGeminiConnector({ script: DEMO_SCRIPT }),
+    connector,
     transcriptProcessor: new TranscriptProcessor(),
     diarization: new DiarizationTracker(),
     pauseDetector: new PauseDetector(),
     compressor,
   });
 
+  // The browser (typed text or mic) drives the meeting: each utterance is
+  // injected into the perception pipeline as a transcript fragment.
+  wsServer.onInbound((message) => connector.submit(message.speaker, message.text));
+
   wsServer.broadcast({ kind: 'reset' });
   await perceptionEngine.start({
     meetingId: config.meeting.meetingId,
     sampleRate: config.perception.session.sampleRate,
-    compressionBatchSize: config.perception.compressionBatchSize,
+    compressionBatchSize: 1, // compress each utterance immediately for responsiveness
     compressionIntervalMs: config.perception.compressionIntervalMs,
     useMock: true,
   });

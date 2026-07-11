@@ -249,3 +249,46 @@ body {
 .iv-state { color: var(--text-dim); text-transform: capitalize; }
 .iv-urgency { margin-left: auto; color: var(--text-faint); font-size: 11px; }
 .iv-note { font-size: 13px; color: var(--text); margin-top: 4px; }
+
+/* ── Meeting input bar (drive the live pipeline: type / mic / demo) ── */
+.input-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+  padding: 10px 12px;
+  margin-top: 8px;
+  border-top: 1px solid var(--panel-border, rgba(255, 255, 255, 0.07));
+  flex-wrap: wrap;
+}
+.input-bar .ib-speaker { width: 92px; flex: 0 0 auto; }
+.input-bar .ib-text { flex: 1 1 220px; min-width: 160px; }
+.input-bar input {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--panel-border-strong, rgba(255, 255, 255, 0.14));
+  border-radius: 8px;
+  color: var(--text, #e8e8f0);
+  font: inherit;
+  font-size: 13px;
+  padding: 7px 10px;
+  outline: none;
+}
+.input-bar input:focus { border-color: var(--accent, #7c3aed); }
+.input-bar .ib-btn {
+  background: var(--accent-soft, rgba(124, 58, 237, 0.16));
+  border: 1px solid var(--panel-border-strong, rgba(255, 255, 255, 0.14));
+  border-radius: 8px;
+  color: var(--text, #e8e8f0);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  padding: 7px 12px;
+}
+.input-bar .ib-btn:hover { border-color: var(--accent, #7c3aed); }
+.input-bar .ib-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.input-bar .ib-mic.active {
+  background: var(--accent, #7c3aed);
+  color: #fff;
+  animation: ib-pulse 1.2s ease-in-out infinite;
+}
+@keyframes ib-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+.input-bar .ib-hint { flex: 1 1 100%; color: var(--text-faint, #9a9ab0); font-size: 11px; }

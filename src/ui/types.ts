@@ -96,6 +96,9 @@ export type UIMessage =
 
 export type UIMessageKind = UIMessage['kind'];
 
+/** Messages the browser sends TO the backend (utterances driving the meeting). */
+export type ClientMessage = { kind: 'say'; speaker: string; text: string };
+
 /** A panel component. `mount` builds its DOM; `handle` applies a message. */
 export interface UIComponent {
   /** Message kinds this component reacts to. */

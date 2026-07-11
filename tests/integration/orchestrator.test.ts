@@ -89,7 +89,13 @@ describe('Orchestrator end-to-end cycle', () => {
     await orchestrator.enqueue(delta());
 
     const kinds = new Set<UIMessageKind>(collected.map((m) => m.kind));
-    for (const expected of ['transcript', 'context', 'stakeholder', 'budget', 'decision'] as const) {
+    for (const expected of [
+      'transcript',
+      'context',
+      'stakeholder',
+      'budget',
+      'decision',
+    ] as const) {
       expect(kinds.has(expected)).toBe(true);
     }
 

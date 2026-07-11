@@ -224,7 +224,11 @@ export class Orchestrator {
     });
   }
 
-  private emitIntervention(proposal: IAgentProposal, state: InterventionState, note?: string): void {
+  private emitIntervention(
+    proposal: IAgentProposal,
+    state: InterventionState,
+    note?: string,
+  ): void {
     this.deps.broadcast({
       kind: 'intervention',
       intervention: {

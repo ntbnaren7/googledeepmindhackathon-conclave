@@ -1,10 +1,5 @@
 import { AgentRegistry } from '../agents/agent-registry';
-import {
-  IAgentResult,
-  IBlackboardState,
-  IContextSnapshot,
-  ISemanticDelta,
-} from '../shared/types';
+import { IAgentResult, IBlackboardState, IContextSnapshot, ISemanticDelta } from '../shared/types';
 import { logger } from '../shared/logger';
 
 /**

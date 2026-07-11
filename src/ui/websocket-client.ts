@@ -1,4 +1,4 @@
-import type { UIMessage, ContextView } from './types';
+import type { UIMessage, ContextView, ClientMessage } from './types';
 import { MockFeed, type FeedListener } from './mock-feed';
 
 export type ConnectionMode = 'auto' | 'live' | 'mock';
@@ -56,6 +56,18 @@ export class WebSocketClient {
     this.socket = null;
     this.mockFeed?.stop();
     this.mockFeed = null;
+  }
+
+  /**
+   * Send an utterance to the backend. Returns true if it went out over a live
+   * socket; false when running on the mock feed (no backend to receive it).
+   */
+  send(message: ClientMessage): boolean {
+    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+      this.socket.send(JSON.stringify(message));
+      return true;
+    }
+    return false;
   }
 
   private handleSocketDown(): void {

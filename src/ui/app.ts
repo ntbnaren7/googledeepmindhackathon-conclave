@@ -1,5 +1,6 @@
 import { WebSocketClient, type ConnectionMode } from './websocket-client';
 import { Dispatcher } from './dispatcher';
+import { InputBar } from './input-bar';
 import type { UIComponent, UIMessage } from './types';
 import { AttentionBudgetGauge } from './components/attention-budget-gauge';
 import { BlackboardPanel } from './components/blackboard-panel';
@@ -70,6 +71,12 @@ function main(): void {
     },
   });
   client.connect();
+
+  const inputRoot = byId('input-bar');
+  if (inputRoot) {
+    const inputBar = new InputBar({ send: (message) => client.send(message) });
+    inputBar.mount(inputRoot);
+  }
 }
 
 main();
