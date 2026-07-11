@@ -15,6 +15,7 @@
   "dependencies": {
     "@google/genai": "^2.11.0",
     "@google/generative-ai": "latest",
+    "dotenv": "^17.4.2",
     "ws": "^8.x"
   },
   "devDependencies": {
