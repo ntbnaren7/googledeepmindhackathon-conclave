@@ -1,132 +1,87 @@
-/**
- * Global type definitions for Conclave
- */
-
-export interface Speaker {
-  id: string;
-  label: string;
-  isHuman: boolean;
-}
-
-// =============================================================================
-// PERCEPTION TYPES  (author: Dev D — self-unblock block, reconcile with Dev A)
-// -----------------------------------------------------------------------------
-// These types back the input pipeline: mic audio -> Gemini Live -> transcript
-// segments -> semantic delta. Kept in one clearly-marked block for easy merge.
-// =============================================================================
-
-/** A chunk of raw PCM audio captured from the microphone. */
-export interface AudioChunk {
-  /** Raw 16-bit PCM samples. */
-  data: ArrayBuffer;
-  /** Samples per second (e.g. 16000). */
-  sampleRate: number;
-  /** Epoch ms when the chunk was captured. */
-  timestamp: number;
-}
-
-/** A raw transcript fragment as delivered by the Gemini Live connector. */
-export interface RawTranscript {
-  /** Recognized text for this fragment. */
-  text: string;
-  /** Provider speaker tag (e.g. Gemini diarization label), if present. */
-  speakerTag?: string;
-  /** True once the provider marks this fragment as final (not interim). */
-  isFinal: boolean;
-  /** Epoch ms marking the start of the spoken fragment. */
-  startMs: number;
-  /** Epoch ms marking the end of the spoken fragment. */
-  endMs: number;
-  /** Provider confidence 0..1, if available. */
-  confidence?: number;
-}
-
-/** A normalized, speaker-attributed transcript segment consumed downstream. */
-export interface TranscriptSegment {
-  /** Unique id for this segment. */
-  id: string;
-  /** Resolved speaker (via diarization tracker). */
-  speaker: Speaker;
-  /** Segment text. */
-  text: string;
-  /** Epoch ms start. */
-  startMs: number;
-  /** Epoch ms end. */
-  endMs: number;
-  /** Confidence 0..1. */
-  confidence: number;
-}
-
-/** Pause classifications per PRD FR-103. */
-export enum PauseType {
-  /** < 500ms — speaker still in flow. */
-  BRIEF = 'brief',
-  /** 500–2000ms — a natural conversational gap. */
-  NATURAL = 'natural',
-  /** > 5000ms — an extended silence. */
-  EXTENDED = 'extended',
-}
-
-/** A detected conversational pause. */
-export interface PauseEvent {
-  type: PauseType;
-  /** Pause length in ms. */
-  durationMs: number;
-  /** Epoch ms when the pause began. */
-  startedAt: number;
-}
-
-// =============================================================================
-// SEMANTIC COMPRESSION TYPES
-// -----------------------------------------------------------------------------
-// Output shape of the Semantic Compressor (implemented by Dev B). Defined here
-// so the Perception Engine can integrate against a stable contract.
-// PRD FR-201 / FR-202.
-// =============================================================================
-
-/** Kind of extracted semantic meaning. */
-export type SemanticUnitType =
-  | 'proposal'
-  | 'decision'
-  | 'assumption'
-  | 'risk'
-  | 'question'
-  | 'objection'
-  | 'clarification'
-  | 'statement'
-  | 'agreement';
-
-/** Domain a semantic unit is most relevant to. */
-export type SemanticDomain =
-  | 'architecture'
-  | 'product'
-  | 'finance'
-  | 'research'
-  | null;
-
-/** A single structured unit of meaning extracted from transcript. */
+// Perception & Semantic Compression
 export interface SemanticUnit {
-  type: SemanticUnitType;
-  /** One-sentence extracted meaning. */
-  content: string;
-  /** Confidence 0..1. */
-  confidence: number;
-  /** Relevant domain, or null. */
-  domain: SemanticDomain;
+  readonly type:
+    | 'proposal'
+    | 'decision'
+    | 'assumption'
+    | 'risk'
+    | 'question'
+    | 'objection'
+    | 'clarification'
+    | 'statement'
+    | 'agreement';
+  readonly content: string;
+  readonly confidence: number;
+  readonly domain: 'architecture' | 'product' | 'finance' | 'research' | null;
 }
 
-/** The compressed semantic result for a batch of transcript segments. */
 export interface SemanticDelta {
-  /** Unique id for this delta. */
-  id: string;
-  /** Extracted semantic units. */
-  units: SemanticUnit[];
-  /** True if the topic shifted in this batch. */
-  topicShift: boolean;
-  /** The new topic if `topicShift` is true, else null. */
-  newTopic: string | null;
-  /** Source segments this delta was compressed from. */
-  sourceSegments: TranscriptSegment[];
-  /** Epoch ms when produced. */
-  timestamp: number;
+  readonly units: readonly SemanticUnit[];
+  readonly topicShift: boolean;
+  readonly newTopic: string | null;
+}
+
+// Context & Knowledge (Strict placeholder interfaces)
+export interface Decision {}
+export interface Assumption {}
+export interface Risk {}
+
+export interface ContextSnapshot {
+  readonly id: string;
+  readonly timestamp: number;
+  readonly currentTopic: string;
+  readonly topicHistory: readonly string[];
+  readonly decisions: readonly Decision[];
+  readonly assumptions: readonly Assumption[];
+  readonly risks: readonly Risk[];
+}
+
+export interface BlackboardEntry {
+  readonly id: string;
+  readonly agentId: string;
+  readonly cycleId: string;
+  readonly type:
+    | 'observation'
+    | 'warning'
+    | 'hypothesis'
+    | 'question'
+    | 'confidence_update'
+    | 'agreement'
+    | 'disagreement';
+  readonly content: string;
+  readonly confidence: number;
+  readonly relatedTo: string | null;
+  readonly timestamp: number;
+}
+
+export interface BlackboardState {
+  readonly entries: readonly BlackboardEntry[];
+}
+
+// Agents & Proposals
+export interface InterventionProposal {
+  readonly id: string;
+  readonly agentId: string;
+  readonly triggerEventId: string;
+  readonly createdAt: number;
+  readonly relevance: number;
+  readonly severity: number;
+  readonly confidence: number;
+  readonly informationGain: number;
+  readonly timeCriticality: number;
+  readonly interruptCost: number;
+  readonly urgency: number;
+  readonly reason: string;
+  readonly recommendation: string;
+}
+
+export interface AgentResult {
+  readonly proposal: InterventionProposal | null;
+  readonly blackboardEntries: readonly Omit<BlackboardEntry, 'id' | 'cycleId' | 'timestamp'>[];
+}
+
+export interface ArbitrationResult {
+  readonly granted: InterventionProposal | null;
+  readonly rejected: readonly InterventionProposal[];
+  readonly deferred: readonly InterventionProposal[];
 }

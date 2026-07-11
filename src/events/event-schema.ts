@@ -1,59 +1,39 @@
 import { EventType } from './event-types';
-import type {
-  Speaker,
-  TranscriptSegment,
-  PauseEvent,
-  SemanticDelta,
-} from '@shared/types';
+import { SemanticDelta } from '../shared/types';
 
-/**
- * Event payload contract.
- *
- * NOTE (Dev D self-unblock): this file is owned by Dev A. Only the
- * perception-relevant payloads are fully specified below; the remaining
- * event types are typed as `unknown` placeholders so the map stays total
- * and compiles today. Dev A refines the kernel/context payloads later.
- * Additions here are additive — existing entries must not be re-shaped.
- */
-export interface EventPayloadMap {
-  // ---- Perception (Dev D) ----
-  [EventType.SPEAKER_STARTED]: { speaker: Speaker; at: number };
-  [EventType.SPEAKER_STOPPED]: { speaker: Speaker; at: number };
-  [EventType.TRANSCRIPT_UPDATE]: { segment: TranscriptSegment };
-  [EventType.PAUSE_DETECTED]: { pause: PauseEvent };
-  [EventType.DELTA_PRODUCED]: { delta: SemanticDelta };
-
-  // ---- Kernel / Context / Output (Dev A, B, C) — placeholders ----
-  [EventType.TICK_STARTED]: unknown;
-  [EventType.TICK_COMPLETED]: unknown;
-  [EventType.INTERRUPT_GRANTED]: unknown;
-  [EventType.AGENT_SPEAKING]: unknown;
-  [EventType.BLACKBOARD_UPDATED]: unknown;
-  [EventType.CONTEXT_UPDATED]: unknown;
-  [EventType.MEETING_STARTED]: unknown;
-}
-
-/** Base fields present on every event. */
 export interface BaseEvent {
-  /** Epoch ms the event was published (filled by the bus if absent). */
-  timestamp?: number;
+  readonly id: string;
+  readonly type: EventType;
+  readonly timestamp: number;
+  readonly source: string;
+  readonly correlationId?: string;
 }
 
-/** A strongly-typed event: the payload is inferred from the event type. */
-export type TypedEvent<T extends EventType> = BaseEvent & {
-  type: T;
-  payload: EventPayloadMap[T];
-};
+export interface EventPayloadMap {
+  [EventType.SPEAKER_STARTED]: Record<string, never>;
+  [EventType.SPEAKER_STOPPED]: Record<string, never>;
+  [EventType.TRANSCRIPT_UPDATE]: Record<string, never>;
+  [EventType.PAUSE_DETECTED]: Record<string, never>;
+  [EventType.DELTA_PRODUCED]: { readonly delta: SemanticDelta };
+  [EventType.CYCLE_STARTED]: Record<string, never>;
+  [EventType.CYCLE_COMPLETED]: Record<string, never>; // To be updated by Kernel
+  [EventType.INTERRUPT_GRANTED]: Record<string, never>;
+  [EventType.AGENT_SPEAKING]: Record<string, never>;
+  [EventType.AGENT_FINISHED]: Record<string, never>;
+  [EventType.BLACKBOARD_UPDATED]: Record<string, never>;
+  [EventType.CONTEXT_UPDATED]: Record<string, never>;
+  [EventType.MEETING_STARTED]: Record<string, never>;
+  [EventType.TOPIC_CHANGED]: Record<string, never>;
+}
 
-/** The union of every possible typed event. */
-export type AnyEvent = {
-  [T in EventType]: TypedEvent<T>;
+export interface TypedEvent<T extends EventType> extends BaseEvent {
+  readonly type: T;
+  readonly payload: EventPayloadMap[T];
+}
+
+// Strictly binds any typed event, avoiding `any`
+export type AnyTypedEvent = {
+  [K in EventType]: TypedEvent<K>;
 }[EventType];
 
-/** Union of the semantic-pipeline events the perception layer emits. */
-export type AnySemanticEvent =
-  | TypedEvent<EventType.SPEAKER_STARTED>
-  | TypedEvent<EventType.SPEAKER_STOPPED>
-  | TypedEvent<EventType.TRANSCRIPT_UPDATE>
-  | TypedEvent<EventType.PAUSE_DETECTED>
-  | TypedEvent<EventType.DELTA_PRODUCED>;
+export type PublishableEvent<T extends EventType> = Omit<TypedEvent<T>, 'id' | 'timestamp'>;

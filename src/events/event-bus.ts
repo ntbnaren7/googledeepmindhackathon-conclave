@@ -1,73 +1,84 @@
 import { EventType } from './event-types';
-import type { AnyEvent, EventPayloadMap, TypedEvent } from './event-schema';
-import type {
-  IEventBus,
-  EventHandler,
-  AnyEventHandler,
-  Unsubscribe,
-} from './interfaces';
+import { AnyTypedEvent, PublishableEvent, TypedEvent } from './event-schema';
+import { generateId } from '../shared/id-generator';
+import { logger } from '../shared/logger';
+import { IEventBus } from './interfaces';
 
-/**
- * In-memory typed publish/subscribe bus.
- *
- * NOTE (Dev D self-unblock): owned by Dev A. Implemented functionally here so
- * the perception pipeline and UI can run standalone. Behavior is intentionally
- * minimal (synchronous dispatch, no ordering guarantees beyond insertion).
- */
+type EventHandler<T extends EventType> = (event: TypedEvent<T>) => void;
+type AnyEventHandler = (event: AnyTypedEvent) => void;
+
 export class EventBus implements IEventBus {
-  private readonly handlers = new Map<EventType, Set<EventHandler<EventType>>>();
-  private readonly globalHandlers = new Set<AnyEventHandler>();
+  private readonly history: AnyTypedEvent[] = [];
+  
+  // O(1) duplicate prevention and unsubscribe
+  private readonly subscribers = new Map<EventType, Set<AnyEventHandler>>();
+  private readonly globalSubscribers = new Set<AnyEventHandler>();
 
-  publish<T extends EventType>(event: {
-    type: T;
-    payload: EventPayloadMap[T];
-    timestamp?: number;
-  }): void {
-    const enriched = {
+  publish<T extends EventType>(event: PublishableEvent<T>): void {
+    // 1. Assign ID and Timestamp
+    const typedEvent = Object.freeze({
+      id: generateId(),
+      timestamp: Date.now(),
       ...event,
-      timestamp: event.timestamp ?? Date.now(),
-    } as TypedEvent<T>;
-
-    const typed = this.handlers.get(event.type);
-    if (typed) {
-      for (const handler of typed) {
+    }) as AnyTypedEvent;
+    
+    // 2. Push frozen event into history
+    this.history.push(typedEvent);
+    
+    // 3. Dispatch to all specific subscribers
+    const handlers = this.subscribers.get(event.type as EventType);
+    if (handlers) {
+      for (const handler of handlers) {
         try {
-          (handler as EventHandler<T>)(enriched);
-        } catch (err) {
-          // A failing subscriber must not break dispatch to others.
-          console.error(`[event-bus] handler error for ${event.type}`, err);
+          handler(typedEvent);
+        } catch (error) {
+          logger.error(`Error in event handler for ${event.type}`, { error, eventId: typedEvent.id });
         }
       }
     }
 
-    for (const handler of this.globalHandlers) {
+    // 4. Dispatch to global subscribers
+    for (const handler of this.globalSubscribers) {
       try {
-        handler(enriched as AnyEvent);
-      } catch (err) {
-        console.error(`[event-bus] global handler error for ${event.type}`, err);
+        handler(typedEvent);
+      } catch (error) {
+        logger.error(`Error in global event handler`, { error, eventId: typedEvent.id });
       }
     }
   }
 
-  subscribe<T extends EventType>(
-    type: T,
-    handler: EventHandler<T>,
-  ): Unsubscribe {
-    let set = this.handlers.get(type);
-    if (!set) {
-      set = new Set();
-      this.handlers.set(type, set);
+  subscribe<T extends EventType>(type: T, handler: EventHandler<T>): () => void {
+    if (!this.subscribers.has(type)) {
+      this.subscribers.set(type, new Set());
     }
-    set.add(handler as EventHandler<EventType>);
+    
+    const handlers = this.subscribers.get(type)!;
+    // We safely cast the generic handler to the generic internal type
+    const anyHandler = handler as unknown as AnyEventHandler;
+    handlers.add(anyHandler);
+    
     return () => {
-      set?.delete(handler as EventHandler<EventType>);
+      const currentHandlers = this.subscribers.get(type);
+      if (currentHandlers) {
+        currentHandlers.delete(anyHandler);
+      }
+    };
+  }
+  
+  subscribeAll(handler: (event: AnyTypedEvent) => void): () => void {
+    this.globalSubscribers.add(handler);
+    
+    return () => {
+      this.globalSubscribers.delete(handler);
     };
   }
 
-  subscribeAll(handler: AnyEventHandler): Unsubscribe {
-    this.globalHandlers.add(handler);
-    return () => {
-      this.globalHandlers.delete(handler);
-    };
+  getHistory(): readonly AnyTypedEvent[] {
+    // Freeze the outer array to prevent accidental reference mutation
+    return Object.freeze([...this.history]);
+  }
+  
+  clearHistory(): void {
+    this.history.length = 0;
   }
 }

@@ -4,11 +4,13 @@ export enum EventType {
   TRANSCRIPT_UPDATE = 'transcript.update',
   PAUSE_DETECTED = 'pause.detected',
   DELTA_PRODUCED = 'delta.produced',
-  TICK_STARTED = 'tick.started',
-  TICK_COMPLETED = 'tick.completed',
+  CYCLE_STARTED = 'cycle.started',
+  CYCLE_COMPLETED = 'cycle.completed',
   INTERRUPT_GRANTED = 'interrupt.granted',
   AGENT_SPEAKING = 'agent.speaking',
+  AGENT_FINISHED = 'agent.finished',
   BLACKBOARD_UPDATED = 'blackboard.updated',
   CONTEXT_UPDATED = 'context.updated',
-  MEETING_STARTED = 'meeting.started'
+  MEETING_STARTED = 'meeting.started',
+  TOPIC_CHANGED = 'topic.changed',
 }
