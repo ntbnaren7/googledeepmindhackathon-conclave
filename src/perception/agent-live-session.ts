@@ -63,6 +63,7 @@ export class AgentLiveSession {
 
   /** Text response accumulation buffer. */
   private textBuffer = '';
+  private turnFired = false;
 
   private wantsToSpeakHandler: WantsToSpeakHandler | null = null;
 
@@ -148,11 +149,11 @@ export class AgentLiveSession {
       this.session = await this.ai.live.connect({
         model: this.model,
         config: {
-          // TEXT response mode: agent produces text proposals, not audio.
-          // The pool arbitrates before any audio is generated.
-          responseModalities: [Modality.TEXT],
+          responseModalities: [Modality.AUDIO],
           // Transcribe the human's audio so the agent can also read the context.
           inputAudioTranscription: {},
+          // Transcribe the model's audio output into text for urgency tag parsing.
+          outputAudioTranscription: {},
           systemInstruction: this.systemInstruction,
         },
         callbacks: {
@@ -221,7 +222,7 @@ export class AgentLiveSession {
     const content = msg.serverContent;
     if (!content) return;
 
-    // Accumulate TEXT response parts
+    // Accumulate TEXT response parts or output transcription
     const parts = content.modelTurn?.parts ?? [];
     for (const part of parts) {
       const text = (part as { text?: string }).text;
@@ -229,24 +230,33 @@ export class AgentLiveSession {
         this.textBuffer += text;
       }
     }
+    const outText = (content as unknown as { outputTranscription?: { text?: string } }).outputTranscription?.text;
+    if (outText) {
+      this.textBuffer += outText;
+    }
 
-    // On turn complete, fire the handler
-    if (content.turnComplete && this.textBuffer.trim()) {
+    // Fire immediately on first meaningful speech chunk or urgency tag
+    // Do NOT wait for turnComplete — we want instant mid-speech interruption!
+    if (!this.turnFired && this.textBuffer.trim().length >= 10) {
       const rawText = this.textBuffer.trim();
-      this.textBuffer = '';
-
       const { text, urgency } = parseUrgencyTag(rawText);
 
-      logger.debug(`[agent-session:${this.agentId}] wants to speak`, {
-        urgency,
-        text: text.slice(0, 80),
-      });
-
       if (!this.muted && this.wantsToSpeakHandler) {
+        this.turnFired = true;
+        logger.debug(`[agent-session:${this.agentId}] fast interrupt triggered`, {
+          urgency,
+          text: text.slice(0, 80),
+        });
         this.wantsToSpeakHandler(this.agentId, text, urgency);
       } else if (this.muted) {
         logger.debug(`[agent-session:${this.agentId}] muted — proposal suppressed`);
       }
+    }
+
+    // On turn complete, reset buffer and turnFired for the next turn
+    if (content.turnComplete) {
+      this.textBuffer = '';
+      this.turnFired = false;
     }
   }
 }

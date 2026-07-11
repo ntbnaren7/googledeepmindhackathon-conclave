@@ -41,19 +41,30 @@ import { logger } from '@shared/logger';
  * How long (ms) to collect competing proposals before picking the winner.
  * Prevents the fastest session from always winning regardless of urgency.
  */
-const ARBITRATION_WINDOW_MS = 800;
+/**
+ * How long (ms) to collect competing proposals before picking the winner.
+ * Shorter = feels more spontaneous and human.
+ */
+const ARBITRATION_WINDOW_MS = 400;
 
 /**
- * Minimum urgency score to grant the floor.
- * Proposals below this threshold are suppressed (LOW urgency = 0.3, threshold = 0.35).
+ * Minimum urgency score to grant the floor while user is quiet.
+ * Lowered so agents interrupt more naturally.
  */
-const MIN_URGENCY_TO_SPEAK = 0.35;
+const MIN_URGENCY_TO_SPEAK = 0.3;
+
+/**
+ * Minimum urgency required to interrupt the user mid-sentence.
+ * Must be HIGH or CRITICAL — we only cut someone off for serious reasons.
+ */
+const MIN_URGENCY_TO_INTERRUPT_USER = 0.75;
 
 /**
  * How long (ms) all agents stay muted after one speaks.
- * Prevents agents from reacting to their own speech or piling on immediately.
+ * Reduced to 5 seconds — long enough to avoid pile-ons, short enough to
+ * feel conversational rather than dead air.
  */
-const POST_SPEECH_QUIET_MS = 12_000;
+const POST_SPEECH_QUIET_MS = 5_000;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -91,8 +102,11 @@ export class AgentLivePool {
   private pendingProposals: AgentProposal[] = [];
   private arbitrationTimer: ReturnType<typeof setTimeout> | null = null;
 
-  /** Timestamp until which all agents are silenced. */
+  /** Timestamp until which all agents are silenced post-speech. */
   private quietUntil = 0;
+
+  /** Whether the user is currently speaking (VAD active). */
+  private userIsSpeaking = false;
 
   constructor(opts: AgentLivePoolOptions) {
     this.outputConnector = opts.outputConnector;
@@ -129,13 +143,26 @@ export class AgentLivePool {
    * Fan audio to all four agent sessions simultaneously.
    * Each session handles its own lazy connect internally —
    * the first audio chunk it receives triggers the connection.
+   *
+   * NOTE: We always forward audio even during the post-speech quiet window.
+   * Agents must hear the conversation in order to decide whether to interrupt.
+   * The quiet window only gates *speaking*, not *listening*.
    */
   pushAudio(chunk: AudioChunk): void {
-    // Gate: if within post-speech quiet window, don't waste inference budget
-    if (Date.now() < this.quietUntil) return;
-
-    // Fan audio to all sessions — each self-connects on first chunk
+    // Always fan audio — agents need to hear to decide when to speak
     this.fanAudio(chunk);
+  }
+
+  /**
+   * Called by the perception engine when VAD detects user speech start.
+   * Lets the pool know the user is currently talking so we can correctly
+   * apply the higher interruption-urgency threshold.
+   */
+  notifyUserSpeaking(speaking: boolean): void {
+    this.userIsSpeaking = speaking;
+    if (!speaking) {
+      logger.debug('[agent-pool] user stopped speaking — normal urgency threshold restored');
+    }
   }
 
   async connect(): Promise<void> {
@@ -177,13 +204,22 @@ export class AgentLivePool {
       return;
     }
 
-    // Reject low-urgency proposals
-    if (urgency < MIN_URGENCY_TO_SPEAK) {
-      logger.debug(`[agent-pool] ${agentId} suppressed (urgency too low)`, { urgency });
+    // If the user is currently speaking, require a higher urgency to interrupt them.
+    // This models human behaviour: you only cut someone off when it really matters.
+    const threshold = this.userIsSpeaking ? MIN_URGENCY_TO_INTERRUPT_USER : MIN_URGENCY_TO_SPEAK;
+    if (urgency < threshold) {
+      logger.debug(`[agent-pool] ${agentId} suppressed (urgency ${urgency} < threshold ${threshold})`, {
+        userIsSpeaking: this.userIsSpeaking,
+      });
       return;
     }
 
-    logger.debug(`[agent-pool] proposal received`, { agentId, urgency, text: text.slice(0, 60) });
+    if (this.userIsSpeaking) {
+      logger.info(`[agent-pool] 🚨 ${agentId} interrupting user (urgency ${urgency})`);
+    } else {
+      logger.debug(`[agent-pool] proposal received`, { agentId, urgency, text: text.slice(0, 60) });
+    }
+
     this.pendingProposals.push({ agentId, text, urgency, receivedAt: now });
 
     // Open the arbitration window if not already open

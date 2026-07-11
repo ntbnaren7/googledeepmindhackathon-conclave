@@ -16,60 +16,106 @@
       <!-- Header -->
       <header class="area-header topbar">
         <div class="brand">
-          <h1>CONCLAVE</h1>
-          <span class="subtitle">Cognitive Operating System</span>
+          <div class="voice-orb">
+            <span class="orb-ring"></span>
+            <span class="orb-core"></span>
+          </div>
+          <div>
+            <h1>CONCLAVE</h1>
+            <span class="subtitle">Cognitive Voice Orchestrator</span>
+          </div>
           <span class="topic-chip" id="topic-chip" hidden></span>
         </div>
-        <div class="status-pill">
-          <div class="header-status">
-        <button id="mic-btn" class="mic-btn">🎙️ Start Mic</button>
-        <span id="conn-status" class="status-badge connecting">connecting…</span>
-      </div>
+        <div class="header-controls">
+          <button id="mic-btn" class="mic-btn">
+            <span class="mic-icon">🎙️</span>
+            <span class="mic-label">Start Mic</span>
+          </button>
+          <span id="conn-status" class="status-badge connecting">connecting…</span>
+        </div>
       </header>
 
-      <!-- Left: transcript -->
+      <!-- Left: Live Transcript -->
       <section class="area-transcript panel">
-        <h2>Live Transcript</h2>
+        <div class="panel-header">
+          <div class="panel-title">
+            <span class="header-indicator emerald"></span>
+            <h2>Live Transcription & Voice Feed</h2>
+          </div>
+          <span class="header-meta">Realtime VAD</span>
+        </div>
         <div class="panel-body" id="transcript-body">
-          <p class="panel-empty">Waiting for discussion…</p>
+          <p class="panel-empty">Listening for voice discussion…</p>
         </div>
       </section>
 
-      <!-- Right sidebar: budget, stakeholders, blackboard -->
+      <!-- Right sidebar: Budget, Stakeholders, Cognitive Blackboard -->
       <div class="area-sidebar sidebar-stack">
-        <section class="panel">
-          <h2>Attention Budget</h2>
+        <section class="panel panel-compact">
+          <div class="panel-header">
+            <div class="panel-title">
+              <span class="header-indicator emerald"></span>
+              <h2>Attention Budget</h2>
+            </div>
+            <span class="header-meta">Speech Arbitration</span>
+          </div>
           <div class="panel-body" id="budget-body">
-            <p class="panel-empty">No budget data.</p>
+            <p class="panel-empty">Initializing telemetry…</p>
           </div>
         </section>
-        <section class="panel">
-          <h2>Stakeholders</h2>
+
+        <section class="panel panel-compact">
+          <div class="panel-header">
+            <div class="panel-title">
+              <span class="header-indicator cyan"></span>
+              <h2>AI Council Stakeholders</h2>
+            </div>
+            <span class="header-meta">4 Live Experts</span>
+          </div>
           <div class="panel-body" id="stakeholder-body">
-            <p class="panel-empty">No agents yet.</p>
+            <p class="panel-empty">Connecting personas…</p>
           </div>
         </section>
+
         <section class="panel">
-          <h2>Cognitive Blackboard</h2>
+          <div class="panel-header">
+            <div class="panel-title">
+              <span class="header-indicator purple"></span>
+              <h2>Cognitive Blackboard</h2>
+            </div>
+            <span class="header-meta">Synchronized Memory</span>
+          </div>
           <div class="panel-body" id="blackboard-body">
-            <p class="panel-empty">No observations yet.</p>
+            <p class="panel-empty">No observations posted yet.</p>
           </div>
         </section>
       </div>
 
-      <!-- Bottom left: decision graph -->
+      <!-- Bottom left: Decision Graph -->
       <section class="area-decision panel">
-        <h2>Decision Graph</h2>
+        <div class="panel-header">
+          <div class="panel-title">
+            <span class="header-indicator emerald"></span>
+            <h2>Decision Synthesis Graph</h2>
+          </div>
+          <span class="header-meta">Live Consensus</span>
+        </div>
         <div class="panel-body" id="decision-body">
-          <p class="panel-empty">No decisions yet.</p>
+          <p class="panel-empty">Awaiting proposal convergence…</p>
         </div>
       </section>
 
-      <!-- Bottom right: intervention log -->
+      <!-- Bottom right: Intervention Log -->
       <section class="area-interventions panel">
-        <h2>Intervention Log</h2>
+        <div class="panel-header">
+          <div class="panel-title">
+            <span class="header-indicator amber"></span>
+            <h2>Intervention Log</h2>
+          </div>
+          <span class="header-meta">Urgency Scores</span>
+        </div>
         <div class="panel-body" id="interventions-body">
-          <p class="panel-empty">No interventions yet.</p>
+          <p class="panel-empty">No interventions evaluated yet.</p>
         </div>
       </section>
     </div>

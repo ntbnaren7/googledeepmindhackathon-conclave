@@ -1,6 +1,7 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import type { IEventBus } from '../events/interfaces';
 import type { IPerceptionEngine, IGeminiLiveConnector } from '../perception/interfaces';
+import type { AgentLivePool } from '../perception/agent-live-pool';
 import { EventType } from '../events/event-types';
 import { logger } from '../shared/logger';
 
@@ -10,6 +11,8 @@ export interface ConclaveServerConfig {
   perceptionEngine: IPerceptionEngine;
   /** The main Live connector — used to wire the interrupt signal to browsers. */
   connector: IGeminiLiveConnector;
+  /** Optional agent pool — notified when user starts/stops speaking. */
+  agentPool?: AgentLivePool;
 }
 
 export class ConclaveWebSocketServer {
@@ -97,10 +100,21 @@ export class ConclaveWebSocketServer {
     });
 
     // When the Live model is interrupted by user speech, tell the browser
-    // to stop playing buffered audio immediately.
+    // to stop playing buffered audio immediately — and notify the agent pool
+    // that the user is now speaking (so agents can apply the interrupt threshold).
     this.config.connector.onInterrupt(() => {
       logger.info('[ws-server] broadcasting agent_interrupted to clients');
       this.broadcast({ type: 'agent_interrupted' });
+      // Signal pool: user is now speaking — agents can interrupt at HIGH/CRITICAL urgency
+      this.config.agentPool?.notifyUserSpeaking(true);
+    });
+
+    // When user finishes speaking (turn complete from input transcription),
+    // restore normal urgency threshold on the agent pool.
+    this.config.connector.onTranscript((raw) => {
+      if (raw.isFinal) {
+        this.config.agentPool?.notifyUserSpeaking(false);
+      }
     });
   }
 

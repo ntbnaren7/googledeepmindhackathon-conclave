@@ -165,6 +165,7 @@ async function bootstrap() {
     eventBus,
     perceptionEngine,
     connector,
+    agentPool,
   });
   wsServer.start();
 
