@@ -1,183 +1,154 @@
 # Conclave
 
-A Cognitive Operating System for real-time technical decision making. Built for the Google DeepMind Bangalore Hackathon.
+A Cognitive Operating System for real-time technical decision making and multi-agent meeting intervention. Built for the Google DeepMind Hackathon.
 
-Conclave simulates a meeting between AI stakeholder agents (CTO, Product, Finance, Research) that listen to live audio, reason over structured context, and produce grounded interventions — like a panel of experts sitting in on your meeting.
+Conclave orchestrates a panel of autonomous AI stakeholder personas (CTO, Product, Finance, Research) that listen to real-time audio streams, reason over evolving context, and voice immediate interventions when domain-specific fallacies, unverified claims, or impractical assumptions occur.
 
-## Architecture
+---
+
+## Architecture Overview
 
 ```
-Gemini Live API → Perception → Semantic Compressor → Event Bus
-                                                         ↓
-              Context Engine ← ← ← ← ← ← ← ← ← ← ← ←
-                     ↓
-           Cognitive Kernel → Stakeholder Agents → Speech Output → UI
-                         ↑
-                    Blackboard (shared memory)
+                        +---------------------------------------+
+                        |          User Microphone / UI         |
+                        +---------------------------------------+
+                                           |
+                                     (PCM Audio)
+                                           v
++-----------------------------------------------------------------------------------+
+| Perception & Live Audio Gateway (src/perception/)                                 |
+|                                                                                   |
+|  +-----------------+    +---------------------+    +---------------------------+  |
+|  | WS Server       | -> | Agent Live Sessions | -> | Gemini Live API           |  |
+|  | (16kHz PCM I/O) |    | (4 Concurrent Pool) |    | (24kHz Native Audio Out)  |  |
+|  +-----------------+    +---------------------+    +---------------------------+  |
+|           |                        |                             |                |
+|           +------------------------+-----------------------------+                |
+|                                    |                                              |
+|                                    v                                              |
+|                      +---------------------------+                                |
+|                      | Agent Live Pool           |                                |
+|                      | (400ms Arbitration Gate)  |                                |
+|                      +---------------------------+                                |
++-----------------------------------------------------------------------------------+
+                                     |
+                         (Urgency-Ranked Speech Winner)
+                                     v
++-----------------------------------------------------------------------------------+
+| Cognitive Kernel & Shared State (src/kernel/, src/context/)                       |
+|                                                                                   |
+|  +------------------------+   +-------------------+   +------------------------+  |
+|  | Attention Gate         |   | Blackboard        |   | Context Engine         |  |
+|  | (Cooldown & Budgeting) |   | (Shared Memory)   |   | (Rolling Snapshot)     |  |
+|  +------------------------+   +-------------------+   +------------------------+  |
++-----------------------------------------------------------------------------------+
 ```
 
-| Layer | Module | Purpose |
-|-------|--------|---------|
-| **Input** | `src/perception/` | Gemini Live API for real-time audio, transcript processing, semantic compression |
-| **Reasoning** | `src/context/`, `src/knowledge/` | Context tracking, decision graphs, knowledge graph |
-| **Agents** | `src/agents/` | CTO, Product, Finance, Research — each with domain-specific prompts |
-| **Orchestration** | `src/kernel/` | Cognitive kernel, attention budget, intervention scoring, blackboard |
-| **Output** | `src/output/` | Response formatting (markdown + SSML), speech synthesis |
-| **Shared** | `src/shared/` | Types, constants, utilities, logger |
-| **UI** | `src/ui/` | Mock feed for visualization |
+---
+
+## Core Technical Features
+
+### 1. Concurrent Multi-Persona Audio Council
+- **Four Dedicated Live Sessions**: CTO, Product, Finance, and Research agents operate independent, persistent real-time sessions against the Gemini Live API (`gemini-live-2.5-flash-preview`).
+- **Domain-Specific Silence Protocol**: Each persona follows a strict default-silence instruction. Agents only break silence when an explicit domain assumption is violated.
+
+### 2. Instant Mid-Speech Interruption
+- **Real-Time User Speech Tracking**: Incoming audio is transcribed continuously. As soon as user speech is detected, the gateway signals active user speech to the agent pool.
+- **Calibrated Urgency Arbitration**: Proposals are parsed for trailing urgency tags (`[LOW]`, `[MED]`, `[HIGH]`, `[CRITICAL]`). When an agent breaks silence to interject, it receives a default urgency of `0.75` (`HIGH`).
+- **Mid-Speech Cut-In Threshold**: While the user is speaking, the arbitration threshold is calibrated to `0.50`, ensuring any valid domain objection immediately interrupts the speaker.
+
+### 3. Arbitration & Attention Budgeting
+- **400ms Arbitration Window**: Competing proposals generated concurrently by multiple agents are collected and ranked by urgency score. The highest-priority persona wins the floor.
+- **Post-Speech Dynamic Cooldown**: Prevents acoustic pile-ons and dead air by enforcing a brief 3,000ms quiet window after an intervention finishes, while allowing active user speech to bypass the cooldown instantly.
+- **Attention Budget Regulation**: Monitors cumulative interruptions and dynamically throttles low-urgency interjections when the meeting budget depletes.
+
+---
+
+## Stakeholder Personas
+
+| Persona | Domain Focus | Intervention Triggers |
+|---------|--------------|-----------------------|
+| **CTO** | System Architecture & Reliability | Scalability bottlenecks, unverified performance claims, missing test coverage, security risks |
+| **Product** | User Experience & Scope | Feature bloat, unvalidated user needs, roadmap drift, timeline feasibility |
+| **Finance** | Unit Economics & ROI | Unsubstantiated infrastructure costs, runway impact, unbudgeted capital expenditures |
+| **Research** | Empirical Validation & Rigor | Unbacked claims, flawed statistical reasoning, lack of benchmark references |
+
+---
+
+## Directory Structure
+
+```
+src/
+├── perception/           # Real-time Gemini Live audio sessions, arbitration pool, and connectors
+├── kernel/               # Cognitive kernel, attention budget, scheduler, and blackboard memory
+├── context/              # Context engine and decision graph trackers
+├── agents/               # Domain persona implementations and intervention scorers
+├── events/               # Event bus and structured event definitions
+├── server/               # Real-time WebSocket audio streaming server
+├── ui/                   # High-performance glassmorphic UI feed and audio visualizer
+└── shared/               # Core types, configuration, and structured logging
+```
+
+---
 
 ## Quick Start
 
 ### Prerequisites
+- Node.js 18.x or higher
+- Google Gemini API Key
 
-- Node.js 18+
-- A Google Gemini API key ([get one free](https://aistudio.google.com/apikey))
-
-### Setup
+### Installation
 
 ```bash
-# Clone the repo
-git clone <repo-url>
+# Clone repository
+git clone https://github.com/ntbnaren7/googledeepmindhackathon-conclave.git
 cd conclave
 
 # Install dependencies
 npm install
 
-# Configure environment
+# Set environment variables
 cp .env.example .env
-# Edit .env and add your GEMINI_API_KEY
 ```
 
-### Environment Variables
-
-```bash
-# Required
-GEMINI_API_KEY=your-api-key-here
-
-# Optional (defaults shown)
-GEMINI_MODEL=gemini-3.5-flash
-GEMINI_LIVE_MODEL=gemini-live-2.5-flash-preview
-GEMINI_SEARCH_MODEL=gemini-3.5-flash
+Add your API key to `.env`:
+```ini
+GEMINI_API_KEY=your_api_key_here
 PORT=3000
 WS_PORT=3001
 ```
 
-### Run
+### Running Locally
 
 ```bash
-# Start the server
+# Terminal 1: Start backend server and WebSocket gateway
 npm run dev
 
-# Start the UI (Vite dev server)
+# Terminal 2: Start Vite frontend client
 npm run dev:ui
+```
 
-# Run all tests
+Access the web interface at `http://localhost:3000`.
+
+---
+
+## Verification & Testing
+
+Conclave includes a comprehensive automated test suite covering unit architecture, arbitration logic, and real-time perception pipelines.
+
+```bash
+# Run all unit and integration tests
 npm test
 
-# Type-check
+# Run TypeScript type verification
 npm run typecheck
 
-# Lint
+# Run linter
 npm run lint
 ```
 
-## Stakeholder Agents
-
-Each agent specializes in a domain and reasons over the same structured context:
-
-| Agent | Domain | Concerns |
-|-------|--------|----------|
-| **CTO** | Technical architecture | Scalability, tech debt, security, infrastructure, API design |
-| **Product** | User value | MVP scope, prioritization, customer impact, UX, roadmap |
-| **Finance** | Cost & ROI | Infrastructure costs, operational expense, monetization, risk |
-| **Research** | Evidence & validation | Missing data, unsupported assumptions, benchmarks, gaps |
-
-Agents use **dependency injection** — they depend on `ILlmClient`, not on any specific LLM provider. Swap `GeminiLlmClient` for any other provider without changing agent code.
-
-## How It Works
-
-1. **Perception** captures audio via Gemini Live API and compresses it into structured semantic units (topics, decisions, assumptions, risks)
-2. **Context Engine** maintains a rolling context snapshot and decision graph
-3. **Cognitive Kernel** decides whether any agent should intervene, based on attention budget and cooldown
-4. **Agents** evaluate the context, produce proposals (or null if irrelevant), and generate spoken responses
-5. **Intervention Scorer** ranks proposals by novelty, urgency, and confidence
-6. **Speech Output** converts responses to text and SSML for TTS
-
-## Testing
-
-```bash
-# Run all tests (236+ tests)
-npm test
-
-# Run specific test suites
-npx vitest run tests/unit/agents/
-npx vitest run tests/integration/
-
-# Run with real Gemini API (requires valid API key in .env)
-npx vitest run tests/integration/real-gemini.test.ts
-```
-
-### Test Structure
-
-```
-tests/
-├── unit/
-│   ├── agents/        # BaseAgent, each stakeholder, registry, scorer
-│   ├── output/        # ResponseFormatter
-│   ├── kernel/        # Attention budget, arbitrator, blackboard
-│   ├── context/       # Context engine, trackers
-│   ├── perception/    # Semantic compressor, transcript processor
-│   ├── knowledge/     # Knowledge graph
-│   ├── shared/        # Similarity utils
-│   └── ui/            # Mock feed
-└── integration/
-    ├── cognitive-tick.test.ts    # End-to-end pipeline
-    ├── devc-smoke.test.ts        # Agents + output smoke test
-    └── real-gemini.test.ts       # Live API integration
-```
-
-## Project Structure
-
-```
-src/
-├── agents/
-│   ├── base-agent.ts            # Abstract base — DI, pipeline, hooks
-│   ├── interfaces.ts            # ILlmClient, IStakeholderAgent
-│   ├── cto-agent.ts             # CTO stakeholder
-│   ├── product-agent.ts         # Product stakeholder
-│   ├── finance-agent.ts         # Finance stakeholder
-│   ├── research-agent.ts        # Research stakeholder
-│   ├── agent-registry.ts        # Agent lifecycle container
-│   ├── intervention-scorer.ts   # Proposal scoring
-│   └── gemini-llm-client.ts     # Gemini API wrapper
-├── output/
-│   ├── interfaces.ts            # ISpeechOutput, ITtsProvider
-│   ├── response-formatter.ts    # Proposal → markdown + SSML
-│   ├── speech-synthesizer.ts    # Queue-based speech pipeline
-│   └── web-speech-provider.ts   # Browser TTS (only browser-touching code)
-├── shared/
-│   ├── types.ts                 # All shared DTOs
-│   ├── constants.ts             # Runtime thresholds
-│   ├── utils.ts                 # clamp(), extractJson()
-│   ├── logger.ts                # Structured JSON logger
-│   └── ...
-├── perception/                  # Audio input + compression
-├── context/                     # Context tracking
-├── kernel/                      # Orchestration
-├── knowledge/                   # Knowledge graph
-├── events/                      # Event bus
-└── ui/                          # Visualization
-```
-
-## Tech Stack
-
-- **Runtime:** Node.js + TypeScript (CommonJS)
-- **LLM:** Google Gemini 3.5 Flash (`@google/generative-ai`)
-- **Live Audio:** Gemini Live API (`@google/genai`)
-- **Testing:** Vitest
-- **Linting:** ESLint with TypeScript rules
-- **UI:** Vite
+---
 
 ## License
 
-Hackathon project — Google DeepMind Bangalore 2026.
+Built for the Google DeepMind Hackathon 2026.
