@@ -1,7 +1,14 @@
+import {
+  DecisionNode,
+  KnowledgeEntry,
+  MeetingRecord,
+  SemanticUnitType,
+} from '../shared/types';
+
 export interface IKnowledgeGraph {
-  store(entry: any): string;
-  getAll(): any[];
-  getByType(type: string): any[];
-  getDecisionNodes(): any[];
-  export(): any;
+  store(entry: KnowledgeEntry): string;
+  getAll(): KnowledgeEntry[];
+  getByType(type: SemanticUnitType): KnowledgeEntry[];
+  getDecisionNodes(): DecisionNode[];
+  export(): MeetingRecord;
 }

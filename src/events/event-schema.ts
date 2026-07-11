@@ -21,7 +21,7 @@ export interface EventPayloadMap {
   [EventType.AGENT_SPEAKING]: Record<string, never>;
   [EventType.AGENT_FINISHED]: Record<string, never>;
   [EventType.BLACKBOARD_UPDATED]: Record<string, never>;
-  [EventType.CONTEXT_UPDATED]: Record<string, never>;
+  [EventType.CONTEXT_UPDATED]: { readonly snapshotId: string };
   [EventType.MEETING_STARTED]: Record<string, never>;
   [EventType.TOPIC_CHANGED]: Record<string, never>;
 }
