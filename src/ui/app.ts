@@ -1,48 +1,43 @@
 import { WebSocketClient, type ConnectionMode } from './websocket-client';
 import { Dispatcher } from './dispatcher';
 import type { UIComponent, UIMessage } from './types';
+import { AttentionBudgetGauge } from './components/attention-budget-gauge';
+import { BlackboardPanel } from './components/blackboard-panel';
+import { StakeholderPanel } from './components/stakeholder-panel';
+import { TranscriptPanel } from './components/transcript-panel';
+import { DecisionGraphPanel } from './components/decision-graph-panel';
+import { InterruptQueue } from './components/interrupt-queue';
+import { escapeHtml } from './agents';
 
 /**
- * UI application entry point.
- *
- * Wires the WebSocket client (live backend, with mock-feed fallback) to the
- * panel components via the Dispatcher. Panel components are registered in
- * `main()`; Phase D4 adds the full set (budget gauge, blackboard, etc.).
+ * UI application entry point. Wires the WebSocket client (live backend, with
+ * mock-feed fallback) to the panel components via the Dispatcher.
  */
 
 function byId(id: string): HTMLElement | null {
   return document.getElementById(id);
 }
 
-function escapeHtml(s: string): string {
-  const div = document.createElement('div');
-  div.textContent = s;
-  return div.innerHTML;
-}
-
-/**
- * Temporary D3 component: appends transcript lines as they arrive so the mock
- * feed is visibly flowing end-to-end. Replaced by `TranscriptPanel` in Phase D4.
- */
-class TranscriptTail implements UIComponent {
-  readonly kinds = ['transcript'] as const;
-  private root: HTMLElement | null = null;
+/** Shows the current meeting topic as a chip in the header. */
+class HeaderTopic implements UIComponent {
+  readonly kinds = ['context'] as const;
+  private el: HTMLElement | null = null;
 
   mount(root: HTMLElement): void {
-    root.innerHTML = '';
-    this.root = root;
+    this.el = root;
   }
 
   handle(msg: UIMessage): void {
-    if (msg.kind !== 'transcript' || !this.root) return;
-    const line = document.createElement('div');
-    line.className = 'enter';
-    line.style.marginBottom = '10px';
-    line.innerHTML = `<strong style="color:var(--accent)">${escapeHtml(
-      msg.line.speaker,
-    )}</strong> <span style="color:var(--text-dim)">${escapeHtml(msg.line.text)}</span>`;
-    this.root.appendChild(line);
-    this.root.scrollTop = this.root.scrollHeight;
+    if (msg.kind !== 'context' || !this.el) return;
+    this.el.hidden = false;
+    this.el.innerHTML = `Topic: <strong>${escapeHtml(msg.context.topic)}</strong>`;
+  }
+
+  clear(): void {
+    if (this.el) {
+      this.el.hidden = true;
+      this.el.textContent = '';
+    }
   }
 }
 
@@ -55,13 +50,14 @@ function main(): void {
       : 'auto';
 
   const dispatcher = new Dispatcher();
+  dispatcher.register(new AttentionBudgetGauge(), byId('budget-body'));
+  dispatcher.register(new StakeholderPanel(), byId('stakeholder-body'));
+  dispatcher.register(new BlackboardPanel(), byId('blackboard-body'));
+  dispatcher.register(new TranscriptPanel(), byId('transcript-body'));
+  dispatcher.register(new DecisionGraphPanel(), byId('decision-body'));
+  dispatcher.register(new InterruptQueue(), byId('interventions-body'));
+  dispatcher.register(new HeaderTopic(), byId('topic-chip'));
 
-  // --- Panel registration (D4 fills this out) -------------------------------
-  // dispatcher.register(new AttentionBudgetGauge(), byId('budget-body'));
-  // dispatcher.register(new BlackboardPanel(), byId('blackboard-body'));
-  dispatcher.register(new TranscriptTail(), byId('transcript-body'));
-
-  // --- Connection -----------------------------------------------------------
   const statusEl = byId('conn-status');
   const client = new WebSocketClient({
     url: `ws://${location.hostname || 'localhost'}:3001`,

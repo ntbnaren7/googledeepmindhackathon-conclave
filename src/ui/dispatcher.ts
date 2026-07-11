@@ -15,6 +15,19 @@ export class Dispatcher {
   }
 
   route(msg: UIMessage): void {
+    // A reset is broadcast to every component's clear() regardless of `kinds`.
+    if (msg.kind === 'reset') {
+      for (const component of this.components) {
+        try {
+          component.clear?.();
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.error('[dispatcher] component clear error', err);
+        }
+      }
+      return;
+    }
+
     for (const component of this.components) {
       if (!component.kinds.includes(msg.kind)) continue;
       try {

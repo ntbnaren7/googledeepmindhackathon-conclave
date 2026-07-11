@@ -31,9 +31,8 @@ const SCRIPT: ScheduledMessage[] = [
 
   // First intervention: CTO speaks, budget drops.
   { at: 3400, msg: { kind: 'stakeholder', stakeholder: { id: 'cto', status: 'speaking', lastInterventionAt: 3400 } } },
-  { at: 3400, msg: { kind: 'intervention', intervention: { id: 'i1', agent: 'cto', urgency: 0.78, state: 'granted', note: 'Growth trajectory challenges the traffic assumption.' } } },
+  { at: 3400, msg: { kind: 'intervention', intervention: { id: 'i1', agent: 'cto', urgency: 0.78, state: 'granted', note: 'Current growth suggests traffic will exceed 100k within 6 months — that changes the architecture requirements.' } } },
   { at: 3400, msg: { kind: 'budget', budget: { percent: 82, interruptions: 1, threshold: 0.45, cooldownMs: 0 } } },
-  { at: 3500, msg: { kind: 'transcript', line: { id: 't3', speaker: 'CTO Agent', speakerIndex: 4, text: 'Current growth suggests traffic will exceed 100k within 6 months — that changes the architecture requirements.' } } },
   { at: 3600, msg: { kind: 'decision', decision: { id: 'd1', label: 'Migrate to Kubernetes', arguments: [
     { text: 'Scales better for growth', kind: 'support' },
     { text: 'Traffic assumption is likely wrong', kind: 'oppose', agent: 'cto' },
@@ -43,9 +42,8 @@ const SCRIPT: ScheduledMessage[] = [
   // Blackboard convergence -> Finance intervenes.
   { at: 5000, msg: { kind: 'blackboard', entry: { id: 'b3', agent: 'finance', type: 'confidence_update', content: 'ROI turns negative if migration exceeds 4 months.', tickId: 3, converging: true } } },
   { at: 5200, msg: { kind: 'stakeholder', stakeholder: { id: 'finance', status: 'speaking', lastInterventionAt: 5200 } } },
-  { at: 5200, msg: { kind: 'intervention', intervention: { id: 'i2', agent: 'finance', urgency: 0.81, state: 'granted', note: 'Convergence bonus: 3 agents aligned.' } } },
+  { at: 5200, msg: { kind: 'intervention', intervention: { id: 'i2', agent: 'finance', urgency: 0.81, state: 'granted', note: 'Multiple signals suggest negative ROI under the current assumptions (convergence: 3 agents aligned).' } } },
   { at: 5200, msg: { kind: 'budget', budget: { percent: 61, interruptions: 2, threshold: 0.5, cooldownMs: 0 } } },
-  { at: 5300, msg: { kind: 'transcript', line: { id: 't4', speaker: 'Finance Agent', speakerIndex: 6, text: 'Multiple signals suggest negative ROI under the current assumptions.' } } },
   { at: 5400, msg: { kind: 'decision', decision: { id: 'd1', label: 'Migrate to Kubernetes', arguments: [
     { text: 'Scales better for growth', kind: 'support' },
     { text: 'Traffic assumption is likely wrong', kind: 'oppose', agent: 'cto' },
@@ -72,14 +70,14 @@ export class MockFeed {
 
   start(listener: FeedListener): void {
     this.stop();
+    // Begin every cycle from a clean slate so a looped replay never duplicates.
+    listener({ kind: 'reset' });
     const total = SCRIPT.length ? SCRIPT[SCRIPT.length - 1].at + 1500 : 0;
     for (const { at, msg } of SCRIPT) {
       this.timers.push(setTimeout(() => listener(msg), at));
     }
     if (this.loop) {
-      this.timers.push(
-        setTimeout(() => this.start(listener), total),
-      );
+      this.timers.push(setTimeout(() => this.start(listener), total));
     }
   }
 
