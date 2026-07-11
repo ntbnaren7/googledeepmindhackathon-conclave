@@ -212,6 +212,36 @@ describe('ContextEngine', () => {
     ).toHaveLength(0);
   });
 
+  it('exports a meeting record from live context state, not lossy KG defaults', () => {
+    const engine = new ContextEngine();
+    engine.handleDelta(buildDelta());
+
+    const record = engine.exportMeetingRecord();
+
+    expect(record.topics.map((t) => t.title)).toContain('Database architecture');
+    expect(record.decisions).toHaveLength(1);
+    expect(record.decisions[0].status).toBe('decided'); // real status, not 'proposed'
+    expect(record.risks[0].severity).toBe('high'); // real severity, not 'med'
+    expect(typeof record.generatedAt).toBe('number');
+  });
+
+  it('returns a decision graph that cannot mutate engine state', () => {
+    const engine = new ContextEngine();
+    engine.handleDelta(buildDelta());
+
+    const graph = engine.getDecisionGraph();
+    graph[0].status = 'rejected';
+    graph[0].opposing.push({
+      id: 'x',
+      content: 'tampering',
+      stance: 'oppose',
+      sourceUnitId: 'x',
+    });
+
+    expect(engine.getDecisionGraph()[0].status).toBe('decided');
+    expect(engine.getDecisionGraph()[0].opposing).toHaveLength(0);
+  });
+
   it('resets the working context state', () => {
     const engine = new ContextEngine();
 

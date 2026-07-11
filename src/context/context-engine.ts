@@ -6,6 +6,7 @@ import {
   ContextState,
   DecisionNode,
   ISemanticUnit,
+  MeetingRecord,
   SemanticDelta,
 } from '../shared/types';
 import { generateId } from '../shared/id-generator';
@@ -84,7 +85,29 @@ export class ContextEngine implements IContextEngine {
   }
 
   getDecisionGraph(): DecisionNode[] {
-    return this.store.getState().decisions;
+    // Clone so callers cannot mutate the engine's internal decision state.
+    return structuredClone(this.store.getState().decisions);
+  }
+
+  /**
+   * Authoritative Meeting Record built from the live context state (real
+   * statuses, severities and topics), not from the flat knowledge log. The
+   * knowledge graph remains the raw append-only history; this is the "truth".
+   */
+  exportMeetingRecord(): MeetingRecord {
+    const state = this.store.getState();
+    const topics = state.currentTopic
+      ? [...state.topicHistory, state.currentTopic]
+      : [...state.topicHistory];
+
+    return structuredClone({
+      topics,
+      decisions: state.decisions,
+      assumptions: state.assumptions,
+      risks: state.risks,
+      interventions: state.interventions,
+      generatedAt: Date.now(),
+    });
   }
 
   reset(): void {

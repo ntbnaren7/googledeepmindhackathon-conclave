@@ -2,6 +2,7 @@ import {
   ContextSnapshot,
   ContextState,
   DecisionNode,
+  MeetingRecord,
   SemanticDelta,
 } from '../shared/types';
 
@@ -20,5 +21,6 @@ export interface IContextEngine {
   handleDelta(delta: SemanticDelta): void;
   getSnapshot(): ContextSnapshot;
   getDecisionGraph(): DecisionNode[];
+  exportMeetingRecord(): MeetingRecord;
   reset(): void;
 }
