@@ -232,6 +232,13 @@ export abstract class BaseAgent implements IStakeholderAgent {
       "Decide whether to intervene.  Respond with JSON:",
       '{"proposal": {"agentId": "...", "content": "...", "urgency": 0.0-1.0} or null,',
       ' "blackboardEntries": [{"agentId": "...", "content": "..."}]}',
+      "",
+      "## CRITICAL: Anti-Hallucination Rules",
+      "- ONLY reference facts, risks, and concerns explicitly stated in the context above.",
+      "- Do NOT invent metrics, benchmarks, or technical details not in the context.",
+      "- Do NOT fabricate risks or concerns that aren't mentioned.",
+      "- If the context lacks sufficient information for your domain, return null.",
+      "- Base your proposal strictly on the Topics, Decisions, Assumptions, and Risks provided.",
     ].join("\n");
   }
 
@@ -253,6 +260,11 @@ export abstract class BaseAgent implements IStakeholderAgent {
       "",
       "Respond with JSON:",
       '{"content": "...", "tone": "neutral"|"supportive"|"opposed"|"cautious"}',
+      "",
+      "## CRITICAL: Anti-Hallucination Rules",
+      "- ONLY respond based on the context and proposal above.",
+      "- Do NOT invent details, metrics, or concerns not present in the context.",
+      "- Keep your response grounded in what was actually discussed.",
     ].join("\n");
   }
 
