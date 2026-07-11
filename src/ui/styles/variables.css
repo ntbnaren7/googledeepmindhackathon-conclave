@@ -1,5 +1,67 @@
+/* Conclave design tokens (Dev D). Dark theme, glassmorphism, per-agent colors. */
 :root {
+  /* Surfaces */
   --bg-dark: #0a0a0f;
-  --panel-bg: #12121a;
+  --bg-gradient: radial-gradient(1200px 800px at 70% -10%, #16121f 0%, #0a0a0f 60%);
+  --panel-bg: rgba(18, 18, 26, 0.72);
+  --panel-border: rgba(255, 255, 255, 0.07);
+  --panel-border-strong: rgba(255, 255, 255, 0.14);
+
+  /* Brand accent */
   --accent: #7c3aed;
+  --accent-soft: rgba(124, 58, 237, 0.16);
+
+  /* Text */
+  --text: #e8e8f0;
+  --text-dim: #a0a0b2;
+  --text-faint: #6b6b80;
+
+  /* Per-agent colors */
+  --agent-cto: #3b82f6;
+  --agent-product: #10b981;
+  --agent-finance: #f59e0b;
+  --agent-research: #8b5cf6;
+
+  /* Budget gauge stops */
+  --budget-high: #10b981;
+  --budget-mid: #f59e0b;
+  --budget-low: #ef4444;
+
+  /* Status */
+  --status-idle: #6b6b80;
+  --status-thinking: #f59e0b;
+  --status-speaking: #10b981;
+
+  /* Blackboard entry accents */
+  --bb-observation: #60a5fa;
+  --bb-warning: #f59e0b;
+  --bb-hypothesis: #a78bfa;
+  --bb-question: #22d3ee;
+  --bb-confidence: #34d399;
+  --bb-agreement: #10b981;
+  --bb-disagreement: #ef4444;
+
+  /* Spacing scale */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+
+  /* Radii & shadows */
+  --radius: 14px;
+  --radius-sm: 9px;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  --shadow-soft: 0 4px 14px rgba(0, 0, 0, 0.35);
+  --blur: blur(12px);
+
+  /* Typography */
+  --font-body: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-head: 'Outfit', 'Inter', system-ui, sans-serif;
+
+  /* Motion */
+  --t-fast: 200ms ease;
+  --t-med: 350ms ease;
+  --t-gauge: 500ms cubic-bezier(0.22, 1, 0.36, 1);
 }

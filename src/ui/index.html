@@ -2,12 +2,76 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Conclave UI</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Conclave — Cognitive Operating System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles/variables.css">
   <link rel="stylesheet" href="styles/main.css">
 </head>
 <body>
-  <div id="app"></div>
+  <div id="app">
+    <div class="app-grid">
+      <!-- Header -->
+      <header class="area-header topbar">
+        <div class="brand">
+          <h1>CONCLAVE</h1>
+          <span class="subtitle">Cognitive Operating System</span>
+        </div>
+        <div class="status-pill">
+          <span class="status-dot"></span>
+          <span id="conn-status">connecting…</span>
+        </div>
+      </header>
+
+      <!-- Left: transcript -->
+      <section class="area-transcript panel">
+        <h2>Live Transcript</h2>
+        <div class="panel-body" id="transcript-body">
+          <p class="panel-empty">Waiting for discussion…</p>
+        </div>
+      </section>
+
+      <!-- Right sidebar: budget, stakeholders, blackboard -->
+      <div class="area-sidebar sidebar-stack">
+        <section class="panel">
+          <h2>Attention Budget</h2>
+          <div class="panel-body" id="budget-body">
+            <p class="panel-empty">No budget data.</p>
+          </div>
+        </section>
+        <section class="panel">
+          <h2>Stakeholders</h2>
+          <div class="panel-body" id="stakeholder-body">
+            <p class="panel-empty">No agents yet.</p>
+          </div>
+        </section>
+        <section class="panel">
+          <h2>Cognitive Blackboard</h2>
+          <div class="panel-body" id="blackboard-body">
+            <p class="panel-empty">No observations yet.</p>
+          </div>
+        </section>
+      </div>
+
+      <!-- Bottom left: decision graph -->
+      <section class="area-decision panel">
+        <h2>Decision Graph</h2>
+        <div class="panel-body" id="decision-body">
+          <p class="panel-empty">No decisions yet.</p>
+        </div>
+      </section>
+
+      <!-- Bottom right: intervention log -->
+      <section class="area-interventions panel">
+        <h2>Intervention Log</h2>
+        <div class="panel-body" id="interventions-body">
+          <p class="panel-empty">No interventions yet.</p>
+        </div>
+      </section>
+    </div>
+  </div>
   <script type="module" src="app.ts"></script>
 </body>
 </html>
