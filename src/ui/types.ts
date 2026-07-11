@@ -90,7 +90,9 @@ export type UIMessage =
   | { kind: 'stakeholder'; stakeholder: StakeholderView }
   | { kind: 'decision'; decision: DecisionView }
   | { kind: 'intervention'; intervention: InterventionView }
-  | { kind: 'context'; context: ContextView };
+  | { kind: 'context'; context: ContextView }
+  /** Signals the start of a fresh session; components clear their state. */
+  | { kind: 'reset' };
 
 export type UIMessageKind = UIMessage['kind'];
 
@@ -100,4 +102,6 @@ export interface UIComponent {
   readonly kinds: readonly UIMessageKind[];
   mount(root: HTMLElement): void;
   handle(msg: UIMessage): void;
+  /** Reset to the empty initial state (called on a `reset` message). */
+  clear?(): void;
 }
