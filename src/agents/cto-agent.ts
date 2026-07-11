@@ -1,9 +1,4 @@
-import {
-  IContextSnapshot,
-  ISemanticDelta,
-  IAgentProposal,
-  IAgentResponse,
-} from "@shared/types";
+import { IAgentProposal, IAgentResponse } from "@shared/types";
 import { logger } from "@shared/logger";
 import {
   BaseAgent,
@@ -14,88 +9,29 @@ import {
 import { ILlmClient } from "./interfaces";
 
 // ---------------------------------------------------------------------------
-// CTO domain knowledge
-// ---------------------------------------------------------------------------
-
-/** Signal words that indicate architecture / infrastructure topics. */
-const ARCHITECTURE_KEYWORDS: readonly string[] = [
-  "architecture",
-  "scalability",
-  "microservice",
-  "monolith",
-  "database",
-  "cache",
-  "load balanc",
-  "api",
-  "service mesh",
-  "infrastructure",
-  "kubernetes",
-  "docker",
-  "deploy",
-  "cloud",
-  "latency",
-  "throughput",
-  "concurrency",
-  "migration",
-];
-
-/** Signal words that indicate reliability concerns. */
-const RELIABILITY_KEYWORDS: readonly string[] = [
-  "reliability",
-  "availability",
-  "uptime",
-  "downtime",
-  "failover",
-  "redundancy",
-  "disaster recovery",
-  "backup",
-  "fault tolerant",
-  "resilience",
-  "slsa",
-  "slo",
-  "sli",
-  "error budget",
-  "incident",
-  "outage",
-];
-
-/** Signal words that indicate security concerns. */
-const SECURITY_KEYWORDS: readonly string[] = [
-  "security",
-  "vulnerability",
-  "auth",
-  "authentication",
-  "authorization",
-  "encryption",
-  "token",
-  "secret",
-  "credential",
-  "injection",
-  "xss",
-  "csrf",
-  "compliance",
-  "gdpr",
-  "audit",
-  "penetration",
-  "threat",
-];
-
-// ---------------------------------------------------------------------------
 // CTOAgent
 // ---------------------------------------------------------------------------
 
 /**
  * Chief Technology Officer stakeholder agent.
  *
- * Evaluates the meeting from a technical leadership perspective:
+ * Reasons over the already-structured SemanticDelta produced by the
+ * upstream pipeline (Perception → Compressor → Context Engine).
+ *
+ * Evaluates from a technical leadership perspective:
  *   - Architecture and design decisions
  *   - Scalability and performance
- *   - Backend and infrastructure concerns
- *   - Reliability, availability, and disaster recovery
+ *   - Infrastructure and distributed systems
+ *   - Backend design and technical debt
  *   - Security vulnerabilities and compliance
  *
- * All CTO-specific logic (prompt templates, domain detection, response
- * formatting) lives in this class.  BaseAgent handles the pipeline.
+ * This agent does NOT:
+ *   - Classify transcript text
+ *   - Identify proposals or decisions
+ *   - Perform semantic extraction
+ *
+ * Those responsibilities belong to the Kernel and Perception layers.
+ * CTOAgent only provides CTO-specific reasoning over structured data.
  */
 export class CTOAgent extends BaseAgent {
   readonly id = "cto";
@@ -103,10 +39,12 @@ export class CTOAgent extends BaseAgent {
   readonly responsibilities = [
     "Architecture",
     "Scalability",
-    "Backend",
     "Infrastructure",
-    "Reliability",
+    "Backend Design",
+    "Distributed Systems",
     "Security",
+    "Performance",
+    "Technical Debt",
   ];
 
   constructor(llmClient: ILlmClient) {
@@ -120,24 +58,22 @@ export class CTOAgent extends BaseAgent {
   /**
    * CTO-specific evaluation prompt.
    *
-   * Extends the base prompt with:
-   *   - A checklist of technical concerns to evaluate
-   *   - Explicit instructions to produce a structured proposal
-   *   - Domain-specific urgency guidance (security > reliability > perf)
+   * Instructs the LLM to evaluate structured context through a technical
+   * lens. No classification — just reasoning over pre-classified data.
    */
   protected buildEvaluationPrompt(ctx: EvaluationPromptContext): string {
-    const technicalSignals = this.detectTechnicalSignals(ctx.snapshot, ctx.delta);
-
     return [
       `You are the CTO / technical leader in this meeting.`,
       `Your domain: ${this.responsibilities.join(", ")}.`,
       "",
-      "## Your Evaluation Checklist",
-      "For every new topic, decision, or assumption, assess:",
-      "1. Does this create an architectural risk? (coupling, scalability ceiling, tech debt)",
-      "2. Does this affect reliability? (uptime, failover, data loss)",
-      "3. Does this introduce a security concern? (auth, encryption, compliance)",
-      "4. Does this impact backend performance? (latency, throughput, capacity)",
+      "## Your Reasoning Focus",
+      "Evaluate the structured context for technical implications:",
+      "- Architecture: coupling, scalability ceiling, tech debt, design patterns",
+      "- Infrastructure: deployment, cloud, containers, service mesh",
+      "- Distributed systems: consistency, availability, fault tolerance",
+      "- Security: auth, encryption, compliance, vulnerability surface",
+      "- Performance: latency, throughput, capacity, bottlenecks",
+      "- Backend design: API contracts, data models, migration risks",
       "",
       "## Current Context",
       this.formatSnapshot(ctx.snapshot),
@@ -148,11 +84,9 @@ export class CTOAgent extends BaseAgent {
       "## Blackboard (Other Agents' Posts)",
       this.formatBlackboard(ctx.blackboard),
       "",
-      ...(technicalSignals.length > 0
-        ? ["## Detected Technical Signals", ...technicalSignals, ""]
-        : []),
       "## Instructions",
-      "If you identify a technical concern, produce a structured proposal.",
+      "If the delta contains a technical concern relevant to your domain,",
+      "produce a structured proposal. Otherwise, return null.",
       "Urgency scale: 0.0 (cosmetic) → 0.5 (important) → 1.0 (critical blocker).",
       "Security and data-loss risks should be scored ≥ 0.7.",
       "",
@@ -212,7 +146,6 @@ export class CTOAgent extends BaseAgent {
       return base;
     }
 
-    // Enforce CTO agent ID and clamp urgency
     const proposal: IAgentProposal = {
       agentId: this.id,
       content: base.proposal.content,
@@ -239,7 +172,6 @@ export class CTOAgent extends BaseAgent {
   protected parseResponseOutput(raw: string): IAgentResponse {
     const base = super.parseResponseOutput(raw);
 
-    // If the base returned empty content, provide a CTO-appropriate fallback
     if (!base.content.trim()) {
       return {
         content:
@@ -250,98 +182,12 @@ export class CTOAgent extends BaseAgent {
 
     return base;
   }
-
-  // =========================================================================
-  // Private CTO domain helpers
-  // =========================================================================
-
-  /**
-   * Scan the context snapshot and delta for technical signals.
-   * Returns a list of human-readable observations for the LLM prompt.
-   */
-  private detectTechnicalSignals(
-    snapshot: IContextSnapshot,
-    delta: ISemanticDelta,
-  ): string[] {
-    const signals: string[] = [];
-
-    // Check snapshot risks for architecture/reliability/security concerns
-    for (const risk of snapshot.risks) {
-      const category = this.classifyRisk(risk.description);
-      if (category) {
-        signals.push(
-          `[${category}] Risk detected: "${risk.description}" (severity ${risk.severity})`,
-        );
-      }
-    }
-
-    // Check delta for new decisions that touch CTO domain
-    for (const decision of delta.decisions) {
-      const category = this.classifyText(decision.description);
-      if (category) {
-        signals.push(
-          `[${category}] Decision proposed: "${decision.description}"`,
-        );
-      }
-    }
-
-    // Check delta for unchallenged assumptions in CTO domain
-    for (const assumption of delta.assumptions) {
-      if (!assumption.challenged) {
-        const category = this.classifyText(assumption.statement);
-        if (category) {
-          signals.push(
-            `[${category}] Unchallenged assumption: "${assumption.statement}"`,
-          );
-        }
-      }
-    }
-
-    // Check delta topics for CTO-relevant subjects
-    for (const topic of delta.topics) {
-      const category = this.classifyText(topic.label);
-      if (category) {
-        signals.push(`[${category}] Topic introduced: "${topic.label}"`);
-      }
-    }
-
-    return signals;
-  }
-
-  /**
-   * Classify free-text into a CTO domain category.
-   * Returns the category name or null if not CTO-relevant.
-   */
-  private classifyText(text: string): string | null {
-    const lower = text.toLowerCase();
-
-    if (matchesAny(lower, SECURITY_KEYWORDS)) return "Security";
-    if (matchesAny(lower, RELIABILITY_KEYWORDS)) return "Reliability";
-    if (matchesAny(lower, ARCHITECTURE_KEYWORDS)) return "Architecture";
-
-    return null;
-  }
-
-  /**
-   * Classify a risk description specifically.
-   * Returns the domain category or null.
-   */
-  private classifyRisk(description: string): string | null {
-    return this.classifyText(description);
-  }
-
 }
 
 // ---------------------------------------------------------------------------
-// Module-level helpers
+// Helpers
 // ---------------------------------------------------------------------------
 
-/** Check if any keyword from the list appears in the text. */
-function matchesAny(text: string, keywords: readonly string[]): boolean {
-  return keywords.some((kw) => text.includes(kw));
-}
-
-/** Clamp a number to [min, max]. */
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
