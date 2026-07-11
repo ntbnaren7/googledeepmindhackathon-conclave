@@ -1,0 +1,26 @@
+{
+  "name": "conclave",
+  "version": "0.1.0",
+  "description": "A Cognitive Operating System for real-time technical decision making",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "ts-node src/index.ts",
+    "build": "tsc",
+    "test": "vitest run",
+    "lint": "eslint src/**/*.ts"
+  },
+  "dependencies": {
+    "@google/generative-ai": "latest",
+    "ws": "^8.x"
+  },
+  "devDependencies": {
+    "typescript": "^5.x",
+    "ts-node": "^10.x",
+    "vitest": "^2.x",
+    "@types/ws": "^8.x",
+    "eslint": "^9.x",
+    "@typescript-eslint/eslint-plugin": "latest",
+    "@typescript-eslint/parser": "latest",
+    "prettier": "^3.x"
+  }
+}
