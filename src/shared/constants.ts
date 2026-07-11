@@ -3,4 +3,9 @@ export const RUNTIME_CONSTANTS = Object.freeze({
   DEDUPLICATION_SIMILARITY: 0.85,
   SPEAKER_IN_FLOW_PAUSE_MS: 500,
   SPEAKER_IN_FLOW_WINDOW_MS: 10000,
+  
+  // New: Attention Gate
+  SPEAKING_TIMEOUT_MS: 30000,           // Max 30 seconds per agent speech
+  THRESHOLD_INCREASE_STEP: 0.05,        // FR-805
+  THRESHOLD_DECREASE_STEP: 0.02,        // FR-806
 });
