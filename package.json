@@ -13,19 +13,20 @@
     "lint": "eslint src/**/*.ts"
   },
   "dependencies": {
+    "@google/genai": "^2.11.0",
     "@google/generative-ai": "latest",
     "ws": "^8.x"
   },
   "devDependencies": {
-    "typescript": "^5.x",
-    "ts-node": "^10.x",
-    "vitest": "^2.x",
     "@types/ws": "^8.x",
-    "eslint": "^9.x",
     "@typescript-eslint/eslint-plugin": "latest",
     "@typescript-eslint/parser": "latest",
+    "eslint": "^9.x",
     "prettier": "^3.x",
+    "ts-node": "^10.x",
+    "typescript": "^5.x",
     "vite": "^5.x",
-    "vite-tsconfig-paths": "^5.x"
+    "vite-tsconfig-paths": "^5.x",
+    "vitest": "^2.x"
   }
 }

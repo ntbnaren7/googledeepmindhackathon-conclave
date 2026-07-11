@@ -3,4 +3,7 @@ export * from './interfaces';
 export * from './transcript-processor';
 export * from './diarization-tracker';
 export * from './pause-detector';
+export * from './gemini-live-connector';
+export * from './mock-gemini-connector';
+export * from './mock-compressor';
 export * from './perception-engine';
